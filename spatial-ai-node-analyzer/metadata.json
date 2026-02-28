@@ -1,5 +1,0 @@
-{
-  "name": "Spatial AI Node Analyzer",
-  "description": "Extract structured topological understanding from 360-degree environment images using Gemini Vision.",
-  "requestFramePermissions": []
-}
