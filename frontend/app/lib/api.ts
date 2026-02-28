@@ -36,5 +36,14 @@ export const api = {
     getGraph: async () => {
         const res = await fetch(`${API_BASE_URL}/graph`);
         return res.json();
+    },
+
+    chat: async (query: string, nodeName: string, history: { role: string, text: string }[]) => {
+        const res = await fetch(`${API_BASE_URL}/chat`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query, node_name: nodeName, history }),
+        });
+        return res.json();
     }
 };

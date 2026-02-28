@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Terminal, Send, MessageSquare, Loader2 } from "lucide-react";
-import { SpatialNode, ObjectLocation } from "../lib/api";
+import { api, SpatialNode } from "../lib/api";
 
 interface CommandBarProps {
     topology: SpatialNode | null;
@@ -20,44 +20,19 @@ export default function CommandBarComponent({ topology }: CommandBarProps) {
         }
     }, [chatHistory, isChatting]);
 
-    // For the hackathon, we simulate the chat locally if the backend chat endpoint isn't fully wired yet,
-    // OR hit a real backend endpoint if you built one. Let's do a simple mock based on the topology provided,
-    // identical to how spatial-ai-node-analyzer did it, or just a placeholder since we didn't explicitly build a chat backend endpoint in Phase 1.
     const handleChatSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!chatInput.trim() || !topology || isChatting) return;
 
         const userMsg = chatInput.trim();
         setChatInput('');
-        setChatHistory(prev => [...prev, { role: 'user', text: userMsg }]);
+        const newHistory = [...chatHistory, { role: 'user' as const, text: userMsg }];
+        setChatHistory(newHistory);
         setIsChatting(true);
 
         try {
-            // In a real app, this would hit: await api.chat(userMsg, topology, chatHistory);
-            // For now, we'll simulate the response based on the topology to match the AI Studio UX.
-            await new Promise(resolve => setTimeout(resolve, 1500));
-
-            let responseText = `I see you're in the ${topology.node_name}. `;
-
-            const lowerQuery = userMsg.toLowerCase();
-            if (lowerQuery.includes('where is')) {
-                const target = lowerQuery.replace('where is', '').trim();
-
-                const foundStatic = topology.static_anchors?.find(a => a.type.toLowerCase().includes(target));
-                const foundDynamic = topology.dynamic_objects?.find(d => d.type.toLowerCase().includes(target));
-
-                if (foundStatic) {
-                    responseText += `The ${target} is a static anchor: ${foundStatic.description}.`;
-                } else if (foundDynamic) {
-                    responseText += `I found the ${target}: ${foundDynamic.description}.`;
-                } else {
-                    responseText += `I cannot locate a ${target} in this room based on the visual extraction.`;
-                }
-            } else {
-                responseText += `I'm a local simulation. Ask 'Where is [object]' to test my spatial awareness!`;
-            }
-
-            setChatHistory(prev => [...prev, { role: 'model', text: responseText }]);
+            const data = await api.chat(userMsg, topology.node_name, newHistory);
+            setChatHistory(prev => [...prev, { role: 'model', text: data.response || "No response." }]);
         } catch (err) {
             console.error("Chat error:", err);
             setChatHistory(prev => [...prev, { role: 'model', text: "System Error: VLA offline." }]);
@@ -78,6 +53,11 @@ export default function CommandBarComponent({ topology }: CommandBarProps) {
                         AWAITING TOPOLOGY CONTEXT
                     </div>
                 )}
+                {topology && (
+                    <div className="text-[10px] text-[#00FF9D] font-mono px-2 py-1 bg-[#00FF9D]/10 border border-[#00FF9D]/20 rounded">
+                        CONTEXT: {topology.node_name}
+                    </div>
+                )}
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 bg-[#0a0a0a]">
@@ -85,7 +65,7 @@ export default function CommandBarComponent({ topology }: CommandBarProps) {
                     <div className="text-xs font-mono text-[#555] text-center my-auto flex flex-col items-center gap-2">
                         <Terminal className="w-8 h-8 opacity-20" />
                         <p>Ask questions about the extracted environment...</p>
-                        <p className="text-[10px]">E.g., "Where is the microwave?"</p>
+                        <p className="text-[10px]">E.g., &quot;Where is the microwave?&quot;</p>
                     </div>
                 )}
                 {chatHistory.map((msg, i) => (

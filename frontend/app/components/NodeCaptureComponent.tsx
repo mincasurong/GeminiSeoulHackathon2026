@@ -66,9 +66,17 @@ export default function NodeCaptureComponent({ onAnalysisComplete }: NodeCapture
         }
 
         try {
+            setMessage("⏳ Step 1/3: Extracting topology...");
             const data = await api.uploadNode(formData);
-            if (data.status === "success" || data.message) {
-                setMessage("VLA Analysis Successful: " + data.message);
+
+            if (data.status === "success") {
+                setMessage(`✓ ${data.message}`);
+
+                // Call onAnalysisComplete with the 3-step pipeline results
+                if (data.topology && data.map_image) {
+                    onAnalysisComplete(data.topology, data.map_image, data.locations || []);
+                }
+
                 setFiles(Array(8).fill(null));
                 setNodeName("");
             } else {

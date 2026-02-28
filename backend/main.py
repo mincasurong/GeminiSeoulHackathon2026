@@ -2,9 +2,9 @@ import networkx as nx
 import base64
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+from pydantic import BaseModel
 
-from models import QueryPayload
 from vla_service import VLAService
 
 app = FastAPI(title="Spatial AI SaaS Backend")
@@ -19,7 +19,20 @@ app.add_middleware(
 
 # In-memory storage
 session_graph = nx.DiGraph()
-node_data: Dict[str, Any] = {} # Store detailed VLA results per node
+node_data: Dict[str, Any] = {}
+node_images: Dict[str, list] = {}  # Store images per node for chat context
+
+
+class QueryPayload(BaseModel):
+    user_query: str
+    current_node: str
+
+
+class ChatPayload(BaseModel):
+    query: str
+    node_name: str
+    history: List[Dict[str, str]] = []
+
 
 @app.post("/api/upload-node")
 async def upload_node(
@@ -35,11 +48,37 @@ async def upload_node(
         })
 
     try:
-        actual_name, vla_result = VLAService.extract_topology(gemini_images, node_name)
-        
+        # ── Step 1: Topology Extraction ──
+        print(f"[Step 1/3] Extracting topology for '{node_name}'...")
+        actual_name, topology = VLAService.extract_topology(gemini_images, node_name)
+        print(f"[Step 1/3] ✓ Topology extracted: {actual_name}")
+
+        # ── Step 2: Bird's-Eye Map Generation ──
+        print(f"[Step 2/3] Generating bird's-eye view map...")
+        try:
+            map_image = VLAService.generate_birds_eye_view(gemini_images, topology)
+            print(f"[Step 2/3] ✓ Map generated successfully")
+        except Exception as e:
+            print(f"[Step 2/3] ⚠ Map generation failed: {e}, using placeholder")
+            map_image = "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&q=80&w=1000"
+
+        # ── Step 3: Spatial Localization ──
+        locations = []
+        if map_image.startswith("data:"):
+            print(f"[Step 3/3] Localizing objects on map...")
+            try:
+                locations = VLAService.locate_objects_in_map(map_image, topology)
+                print(f"[Step 3/3] ✓ Located {len(locations)} objects")
+            except Exception as e:
+                print(f"[Step 3/3] ⚠ Localization failed: {e}")
+        else:
+            print(f"[Step 3/3] ⏭ Skipping localization (no generated map)")
+
+        # Store results
         session_graph.add_node(actual_name, captured=True)
-        node_data[actual_name] = vla_result
-        
+        node_data[actual_name] = topology
+        node_images[actual_name] = gemini_images
+
         nodes = list(session_graph.nodes())
         if len(nodes) > 1:
             session_graph.add_edge(nodes[-2], actual_name)
@@ -47,12 +86,38 @@ async def upload_node(
         return {
             "status": "success",
             "node_name": actual_name,
-            "data": vla_result,
-            "message": f"Successfully processed {len(images)} images and extracted spatial topology."
+            "topology": topology,
+            "map_image": map_image,
+            "locations": locations,
+            "message": f"Processed {len(images)} images → {actual_name}"
         }
     except Exception as e:
         print(f"VLA Error: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/chat")
+async def chat(payload: ChatPayload):
+    topology = node_data.get(payload.node_name)
+    if not topology:
+        # Use the most recent node if the specified one is not found
+        if node_data:
+            payload.node_name = list(node_data.keys())[-1]
+            topology = node_data[payload.node_name]
+        else:
+            raise HTTPException(status_code=404, detail="No environment data available. Process a node first.")
+
+    try:
+        response_text = VLAService.chat_with_environment(
+            payload.query, topology, payload.history
+        )
+        return {"response": response_text, "node_name": payload.node_name}
+    except Exception as e:
+        print(f"Chat Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/api/query-planner")
 async def query_planner(payload: QueryPayload):
@@ -63,7 +128,7 @@ async def query_planner(payload: QueryPayload):
     nodes_list = list(session_graph.nodes())
     edges_list = list(session_graph.edges())
     context_data = {n: node_data.get(n, {}).get("dynamic_objects", []) for n in nodes_list}
-    
+
     try:
         result = VLAService.plan_trajectory(
             nodes_list, edges_list, context_data, current_node, payload.user_query
@@ -72,11 +137,13 @@ async def query_planner(payload: QueryPayload):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+
 @app.get("/api/graph")
 async def get_graph():
     nodes = [{"id": n, "data": {"label": n}, "vla": node_data.get(n)} for n in session_graph.nodes()]
     edges = [{"id": f"e-{u}-{v}", "source": u, "target": v} for u, v in session_graph.edges()]
     return {"nodes": nodes, "edges": edges}
+
 
 @app.get("/api/node/{node_id}")
 async def get_node_detail(node_id: str):
