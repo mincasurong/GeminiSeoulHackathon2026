@@ -16,7 +16,7 @@ else:
     client = genai.Client(api_key=api_key)
 
 from model_config import (
-    MODEL_TOPOLOGY, MODEL_IMAGE, MODEL_LOCALIZATION,
+    MODEL_TOPOLOGY, MODEL_LAYOUT, MODEL_IMAGE, MODEL_LOCALIZATION,
     MODEL_CHAT, MODEL_PLANNER
 )
 
@@ -72,58 +72,65 @@ Return STRICT JSON with keys: node_name, static_anchors, dynamic_objects, naviga
         return actual_name, vla_result
 
     # ── Step 2: Bird's-Eye Map Generation ──────────────────────────────
+    # ── Step 2a: Extract Layout Description (Text-Bridge) ───────────────
     @staticmethod
-    def generate_birds_eye_view(gemini_images, topology):
+    def extract_layout_description(gemini_images, topology):
+        """Use a pro model to convert 8 photos into a pure TEXT layout description.
+        This strips the visual bias so the image gen model won't hallucinate 3D."""
         if not client:
             raise ValueError("GenAI client not initialized.")
 
-        anchors_text = ", ".join(a.get("type", "") for a in topology.get("static_anchors", []))
-        objects_text = ", ".join(d.get("type", "") for d in topology.get("dynamic_objects", []))
-        node_name = topology.get("node_name", "Room")
+        prompt = """You are an expert architectural draftsperson. Review these 8 images taken from the center of a room looking in 8 directions (N, NE, E, SE, S, SW, W, NW), and the provided spatial data.
 
-        # Build a spatial description from topology for richer context
-        spatial_desc = []
-        for a in topology.get("static_anchors", []):
-            desc = a.get("description", "")
-            spatial_desc.append(f"- {a.get('type','')}: {desc}")
-        for d in topology.get("dynamic_objects", []):
-            desc = d.get("description", "")
-            spatial_desc.append(f"- {d.get('type','')}: {desc}")
-        for e in topology.get("navigable_edges", []):
-            spatial_desc.append(f"- Exit/pathway: {e.get('description','')} ({e.get('visual_cue','')})")
-        spatial_layout = "\n".join(spatial_desc)
+Write a highly detailed, strictly textual description of the floor plan.
+Describe the exact shape of the room and the relative 2D positions (North, South, East, West, Center) of all static anchors and dynamic objects.
+Do not describe colors or lighting; focus purely on the 2D geometric layout and object placement.
 
-        prompt = f"""Study these photographs taken from the center of a room looking in 8 directions (N, NE, E, SE, S, SW, W, NW).
-Based on what you see in these photos, generate a strict 2D top-down bird's-eye view floor plan of this room.
+Spatial data:
+""" + json.dumps(topology, indent=2)
 
-PERSPECTIVE: Exactly 90 degrees straight down. Like removing the ceiling and looking at the floor from above.
-NO 3D effects, NO angled views, NO perspective distortion. Pure 2D architectural blueprint.
-
-Room: {node_name}
-Fixed structures: {anchors_text}
-Movable objects: {objects_text}
-
-Spatial layout observed from photos:
-{spatial_layout}
-
-STYLE: Professional architectural floor plan. Walls as thick dark lines. Furniture as simple 2D outlines viewed from above.
-DO NOT include any text, labels, words, or numbers. Just the visual layout."""
-
-        # Build parts list with images and prompt text
         parts = []
         for img in gemini_images:
             raw_bytes = base64.b64decode(img["data"])
             parts.append(
                 types.Part.from_bytes(data=raw_bytes, mime_type=img["mime_type"])
             )
-        parts.append(types.Part.from_text(text=prompt))
-
-        # Wrap as a single Content object (matches JS SDK's `contents: { parts }`)
-        content = types.Content(parts=parts)
+        parts.append(prompt)
 
         response = client.models.generate_content(
+            model=MODEL_LAYOUT,
+            contents=parts,
+            config=types.GenerateContentConfig(
+                response_mime_type="text/plain"
+            )
+        )
+
+        return response.text or ""
+
+    # ── Step 2b: Generate Bird's-Eye View (Text-Only → Image) ──────────
+    @staticmethod
+    def generate_birds_eye_view(gemini_images, topology):
+        """Two-step Text-Bridge: first extract layout text, then generate image from TEXT ONLY."""
+        if not client:
+            raise ValueError("GenAI client not initialized.")
+
+        # Step 2a: Extract textual layout from photos (uses understanding model)
+        print("  [Step 2a] Extracting layout description from photos...")
+        layout_text = VLAService.extract_layout_description(gemini_images, topology)
+        print(f"  [Step 2a] ✓ Layout description: {len(layout_text)} chars")
+
+        # Step 2b: Generate image from TEXT ONLY (no photos passed!)
+        prompt = f"""An orthographic, 2D top-down architectural floor plan.
+Perspective is strictly 90 degrees straight down.
+Flat shading, flat geometric shapes, no 3D walls, no vanishing points, minimalist blueprint style.
+Do not include any text, labels, words, or numbers.
+
+Layout details: {layout_text}"""
+
+        print("  [Step 2b] Generating floor plan image from text-only prompt...")
+        response = client.models.generate_content(
             model=MODEL_IMAGE,
-            contents=content,
+            contents=prompt,
             config=types.GenerateContentConfig(
                 response_modalities=["IMAGE", "TEXT"],
                 image_config=types.ImageConfig(
