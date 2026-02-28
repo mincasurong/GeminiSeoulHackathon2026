@@ -15,9 +15,10 @@ if not api_key:
 else:
     client = genai.Client(api_key=api_key)
 
-MODEL_PRO = 'gemini-3-flash-preview'
-MODEL_FLASH = 'gemini-3-flash-preview'
-MODEL_IMAGE = 'gemini-2.5-flash-preview-image-generation'
+from model_config import (
+    MODEL_TOPOLOGY, MODEL_IMAGE, MODEL_LOCALIZATION,
+    MODEL_CHAT, MODEL_PLANNER
+)
 
 SYSTEM_INSTRUCTION = """You are an advanced Spatial AI and Visual-Language VLA subsystem. 
 Your task is to process images representing a 360-degree view of a single localized environment (a "Node") 
@@ -187,7 +188,7 @@ Be concise, helpful, and spatial-aware. If the user asks where something is, des
         ))
 
         response = client.models.generate_content(
-            model=MODEL_FLASH,
+            model=MODEL_CHAT,
             contents=contents,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction
@@ -215,7 +216,7 @@ Be concise, helpful, and spatial-aware. If the user asks where something is, des
         """
 
         response = client.models.generate_content(
-            model=MODEL_FLASH,
+            model=MODEL_PLANNER,
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json"
