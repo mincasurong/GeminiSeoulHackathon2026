@@ -78,4 +78,13 @@ class VLAService:
         
         Plan a path. Return STRICT JSON:
         {{ "plan": ["node_1", "target"], "message": "reason" }}
-    
+        """
+
+        response = client.models.generate_content(
+            model=MODEL_FLASH,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json"
+            )
+        )
+        return json.loads(response.text)
