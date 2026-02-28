@@ -42,63 +42,76 @@ export default function CommandBarComponent({ topology }: CommandBarProps) {
     };
 
     return (
-        <div className="flex flex-col h-full bg-gray-950 p-0 border border-[#333] rounded-xl overflow-hidden min-h-[300px] max-h-[400px]">
-            <div className="p-3 border-b border-[#333] bg-[#151515] flex items-center justify-between">
+        <div className="flex flex-col h-full rounded-xl overflow-hidden min-h-[300px] max-h-[400px]"
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', backdropFilter: 'blur(16px)' }}>
+            <div className="p-3 flex items-center justify-between"
+                style={{ borderBottom: '1px solid var(--border)' }}>
                 <div className="flex items-center gap-2">
-                    <MessageSquare className="w-4 h-4 text-[#00FF9D]" />
-                    <h3 className="text-xs font-mono font-bold text-white uppercase">Spatial Query Interface</h3>
+                    <MessageSquare className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+                    <h3 className="font-mono font-bold uppercase" style={{ color: 'var(--text-primary)' }}>Spatial Query Interface</h3>
                 </div>
                 {!topology && (
-                    <div className="text-[10px] text-red-400 font-mono px-2 py-1 bg-red-500/10 border border-red-500/20 rounded">
+                    <div className="font-mono px-2 py-1 rounded"
+                        style={{ fontSize: '10px', color: '#ef4444', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
                         AWAITING TOPOLOGY CONTEXT
                     </div>
                 )}
                 {topology && (
-                    <div className="text-[10px] text-[#00FF9D] font-mono px-2 py-1 bg-[#00FF9D]/10 border border-[#00FF9D]/20 rounded">
+                    <div className="font-mono px-2 py-1 rounded"
+                        style={{ fontSize: '10px', color: 'var(--accent)', background: 'var(--accent-dim)', border: '1px solid var(--border)' }}>
                         CONTEXT: {topology.node_name}
                     </div>
                 )}
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 bg-[#0a0a0a]">
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4"
+                style={{ background: 'var(--bg-primary)' }}>
                 {chatHistory.length === 0 && (
-                    <div className="text-xs font-mono text-[#555] text-center my-auto flex flex-col items-center gap-2">
+                    <div className="font-mono text-center my-auto flex flex-col items-center gap-2" style={{ color: 'var(--text-muted)' }}>
                         <Terminal className="w-8 h-8 opacity-20" />
                         <p>Ask questions about the extracted environment...</p>
-                        <p className="text-[10px]">E.g., &quot;Where is the microwave?&quot;</p>
+                        <p style={{ fontSize: '12px' }}>E.g., &quot;Where is the microwave?&quot;</p>
                     </div>
                 )}
                 {chatHistory.map((msg, i) => (
                     <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[85%] p-3 rounded-lg text-sm font-mono leading-relaxed ${msg.role === 'user' ? 'bg-[#00FF9D]/10 text-[#00FF9D] border border-[#00FF9D]/30' : 'bg-[#222] text-[#ccc] border border-[#333]'}`}>
+                        <div className="max-w-[85%] p-3 rounded-lg font-mono leading-relaxed"
+                            style={msg.role === 'user'
+                                ? { background: 'var(--accent-dim)', color: 'var(--accent)', border: '1px solid var(--border-strong)' }
+                                : { background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }
+                            }>
                             {msg.text}
                         </div>
                     </div>
                 ))}
                 {isChatting && (
                     <div className="flex justify-start">
-                        <div className="bg-[#222] border border-[#333] p-3 rounded-lg flex items-center gap-2">
-                            <Loader2 className="w-3 h-3 animate-spin text-[#888]" />
-                            <span className="text-xs font-mono text-[#888]">Querying VLA...</span>
+                        <div className="p-3 rounded-lg flex items-center gap-2"
+                            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                            <Loader2 className="w-3 h-3 animate-spin" style={{ color: 'var(--text-muted)' }} />
+                            <span className="font-mono" style={{ color: 'var(--text-muted)' }}>Querying VLA...</span>
                         </div>
                     </div>
                 )}
                 <div ref={chatEndRef} />
             </div>
 
-            <form onSubmit={handleChatSubmit} className="p-3 border-t border-[#333] bg-[#151515] flex gap-2">
+            <form onSubmit={handleChatSubmit} className="p-3 flex gap-2"
+                style={{ borderTop: '1px solid var(--border)' }}>
                 <input
                     type="text"
                     value={chatInput}
                     onChange={e => setChatInput(e.target.value)}
                     placeholder={topology ? "Query the environment..." : "Process a node first..."}
-                    className="flex-1 bg-[#050505] border border-[#333] rounded px-3 py-2 text-sm font-mono text-white focus:outline-none focus:border-[#00FF9D] transition-colors"
+                    className="flex-1 rounded px-3 py-2 font-mono focus:outline-none transition-colors"
+                    style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
                     disabled={isChatting || !topology}
                 />
                 <button
                     type="submit"
                     disabled={isChatting || !chatInput.trim() || !topology}
-                    className="bg-[#00FF9D] text-black px-4 py-2 rounded hover:bg-[#00FF9D]/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                    className="px-4 py-2 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                    style={{ background: 'var(--accent)', color: '#000' }}
                 >
                     <Send className="w-4 h-4" />
                 </button>

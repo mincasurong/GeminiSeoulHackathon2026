@@ -93,10 +93,11 @@ export default function NodeCaptureComponent({ onAnalysisComplete }: NodeCapture
     return (
         <div className="flex flex-col h-full">
             <div className="mb-6">
-                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Node Identifier</label>
+                <label className="block font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>Node Identifier</label>
                 <input
                     type="text"
-                    className="w-full bg-gray-950 border border-gray-800 rounded-md px-4 py-2 text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                    className="w-full rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                    style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
                     placeholder="e.g. living_room_center"
                     value={nodeName}
                     onChange={(e) => setNodeName(e.target.value)}
@@ -108,7 +109,8 @@ export default function NodeCaptureComponent({ onAnalysisComplete }: NodeCapture
                 <div className="relative w-64 h-64">
                     {/* Center Icon (Batch Upload) */}
                     <label
-                        className="absolute inset-0 m-auto w-16 h-16 rounded-full bg-indigo-600 hover:bg-indigo-500 cursor-pointer border-4 box-content border-gray-950 flex flex-col items-center justify-center z-10 shadow-[0_0_20px_rgba(79,70,229,0.5)] transition-colors"
+                        className="absolute inset-0 m-auto w-16 h-16 rounded-full bg-indigo-600 hover:bg-indigo-500 cursor-pointer border-4 box-content flex flex-col items-center justify-center z-10 shadow-[0_0_20px_rgba(79,70,229,0.5)] transition-colors"
+                        style={{ borderColor: 'var(--bg-primary)' }}
                         title="Batch upload 8 images"
                     >
                         <Camera className="w-6 h-6 text-white mb-0.5" />
@@ -138,11 +140,12 @@ export default function NodeCaptureComponent({ onAnalysisComplete }: NodeCapture
                                     top: `calc(50% + ${y}px - 28px)`,
                                 }}
                             >
-                                <label className={`w-full h-full flex flex-col items-center justify-center rounded-lg border-2 border-dashed transition-all cursor-pointer ${files[i] ? 'border-indigo-500 bg-indigo-500/20' : 'border-gray-700 bg-gray-900 hover:border-gray-500 hover:bg-gray-800'}`}>
+                                <label className="w-full h-full flex flex-col items-center justify-center rounded-lg border-2 border-dashed transition-all cursor-pointer"
+                                    style={{ borderColor: files[i] ? '#6366f1' : 'var(--border-strong)', background: files[i] ? 'rgba(99,102,241,0.2)' : 'var(--bg-secondary)' }}>
                                     {files[i] ? (
                                         <CheckCircle2 className="w-5 h-5 text-indigo-400" />
                                     ) : (
-                                        <span style={{ fontSize: '10px' }} className="font-bold text-gray-500">{dir}</span>
+                                        <span style={{ fontSize: '10px', color: 'var(--text-muted)' }} className="font-bold">{dir}</span>
                                     )}
                                     <input
                                         type="file"
@@ -166,7 +169,8 @@ export default function NodeCaptureComponent({ onAnalysisComplete }: NodeCapture
             <button
                 onClick={uploadNode}
                 disabled={isUploading}
-                className="mt-auto w-full py-3 rounded-md bg-white text-gray-900 font-semibold shadow-lg hover:bg-gray-100 transition-all flex items-center justify-center disabled:opacity-70"
+                className="mt-auto w-full py-3 rounded-md font-semibold shadow-lg transition-all flex items-center justify-center disabled:opacity-70"
+                style={{ background: 'var(--accent)', color: '#000' }}
             >
                 {isUploading ? (
                     <>
