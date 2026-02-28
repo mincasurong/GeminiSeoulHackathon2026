@@ -20,7 +20,7 @@ export default function Home() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [fontSize, setFontSize] = useState<'S' | 'M' | 'L'>('M');
 
-  const fontSizeMap = { S: '12px', M: '14px', L: '17px' };
+  const fontSizeMap = { S: '24px', M: '28px', L: '34px' };
 
   const handleAnalysisComplete = async (newTopology: SpatialNode, newMapImage: string, newLocations: ObjectLocation[]) => {
     setTopology(newTopology);

@@ -56,7 +56,7 @@ Return STRICT JSON with keys: node_name, static_anchors, dynamic_objects, naviga
         parts.append(prompt)
 
         response = client.models.generate_content(
-            model=MODEL_PRO,
+            model=MODEL_TOPOLOGY,
             contents=parts,
             config=types.GenerateContentConfig(
                 system_instruction=SYSTEM_INSTRUCTION,
@@ -81,57 +81,54 @@ Return STRICT JSON with keys: node_name, static_anchors, dynamic_objects, naviga
         objects_text = ", ".join(d.get("type", "") for d in topology.get("dynamic_objects", []))
         node_name = topology.get("node_name", "Room")
 
-        anchors_detail = "\n".join(f"  - {a.get('anchor_id','')}: {a.get('type','')} — {a.get('description','')}" for a in topology.get("static_anchors", []))
-        objects_detail = "\n".join(f"  - {d.get('object_id','')}: {d.get('type','')} — {d.get('description','')}" for d in topology.get("dynamic_objects", []))
-        edges_detail = "\n".join(f"  - {e.get('edge_id','')}: {e.get('description','')} ({e.get('visual_cue','')})" for e in topology.get("navigable_edges", []))
+        # Build a spatial description from topology for richer context
+        spatial_desc = []
+        for a in topology.get("static_anchors", []):
+            desc = a.get("description", "")
+            spatial_desc.append(f"- {a.get('type','')}: {desc}")
+        for d in topology.get("dynamic_objects", []):
+            desc = d.get("description", "")
+            spatial_desc.append(f"- {d.get('type','')}: {desc}")
+        for e in topology.get("navigable_edges", []):
+            spatial_desc.append(f"- Exit/pathway: {e.get('description','')} ({e.get('visual_cue','')})")
+        spatial_layout = "\n".join(spatial_desc)
 
-        prompt = f"""STRICT ARCHITECTURAL FLOOR PLAN GENERATION
+        prompt = f"""Study these photographs taken from the center of a room looking in 8 directions (N, NE, E, SE, S, SW, W, NW).
+Based on what you see in these photos, generate a strict 2D top-down bird's-eye view floor plan of this room.
 
-## CRITICAL PERSPECTIVE REQUIREMENTS
-- Camera angle: EXACTLY 90 degrees straight down (true bird's-eye / top-down view)
-- NO 3D walls, NO isometric view, NO angled perspective, NO vanishing points
-- The output MUST look like a professional 2D architectural blueprint viewed from directly above
-- Think of it as if you removed the ceiling and looked straight down at the floor
+PERSPECTIVE: Exactly 90 degrees straight down. Like removing the ceiling and looking at the floor from above.
+NO 3D effects, NO angled views, NO perspective distortion. Pure 2D architectural blueprint.
 
-## STYLE REQUIREMENTS  
-- Clean, minimalist architectural drawing style
-- Light background (white or very light gray) with dark outlines
-- Each piece of furniture/object drawn as a simple 2D shape from above
-- Walls shown as thick dark lines forming the room boundary
-- Doors shown as arc indicators, windows as parallel lines
-- Objects drawn to relative scale with each other
+Room: {node_name}
+Fixed structures: {anchors_text}
+Movable objects: {objects_text}
 
-## ROOM: {node_name}
+Spatial layout observed from photos:
+{spatial_layout}
 
-### Structural Elements (walls, fixed furniture):
-{anchors_detail}
+STYLE: Professional architectural floor plan. Walls as thick dark lines. Furniture as simple 2D outlines viewed from above.
+DO NOT include any text, labels, words, or numbers. Just the visual layout."""
 
-### Objects (movable items):
-{objects_detail}
-
-### Exits / Pathways:
-{edges_detail}
-
-## OUTPUT RULES
-- Aspect ratio: 16:9 landscape
-- DO NOT include any text, labels, words, numbers, or annotations
-- DO NOT include a legend or title
-- Just the pure visual floor plan layout
-- Every listed object MUST appear in the plan at its approximate spatial position"""
-
+        # Build parts list with images and prompt text
         parts = []
         for img in gemini_images:
             raw_bytes = base64.b64decode(img["data"])
             parts.append(
                 types.Part.from_bytes(data=raw_bytes, mime_type=img["mime_type"])
             )
-        parts.append(prompt)
+        parts.append(types.Part.from_text(text=prompt))
+
+        # Wrap as a single Content object (matches JS SDK's `contents: { parts }`)
+        content = types.Content(parts=parts)
 
         response = client.models.generate_content(
             model=MODEL_IMAGE,
-            contents=parts,
+            contents=content,
             config=types.GenerateContentConfig(
                 response_modalities=["IMAGE", "TEXT"],
+                image_config=types.ImageConfig(
+                    aspect_ratio="16:9"
+                )
             )
         )
 
@@ -179,7 +176,7 @@ Coordinates are percentages of image dimensions. Ensure ymin < ymax and xmin < x
         ]
 
         response = client.models.generate_content(
-            model=MODEL_PRO,
+            model=MODEL_LOCALIZATION,
             contents=parts,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json"

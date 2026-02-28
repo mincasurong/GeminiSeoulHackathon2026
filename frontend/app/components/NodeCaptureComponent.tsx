@@ -112,7 +112,7 @@ export default function NodeCaptureComponent({ onAnalysisComplete }: NodeCapture
                         title="Batch upload 8 images"
                     >
                         <Camera className="w-6 h-6 text-white mb-0.5" />
-                        <span className="text-[8px] font-bold text-indigo-100 uppercase">Batch</span>
+                        <span style={{ fontSize: '8px' }} className="font-bold text-indigo-100 uppercase">Batch</span>
                         <input
                             type="file"
                             multiple
@@ -142,7 +142,7 @@ export default function NodeCaptureComponent({ onAnalysisComplete }: NodeCapture
                                     {files[i] ? (
                                         <CheckCircle2 className="w-5 h-5 text-indigo-400" />
                                     ) : (
-                                        <span className="text-[10px] font-bold text-gray-500">{dir}</span>
+                                        <span style={{ fontSize: '10px' }} className="font-bold text-gray-500">{dir}</span>
                                     )}
                                     <input
                                         type="file"
