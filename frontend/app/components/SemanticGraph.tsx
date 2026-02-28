@@ -172,8 +172,36 @@ export default function SemanticGraph({ data }: SemanticGraphProps) {
         };
     }, [data]);
 
+    const handleDownload = () => {
+        if (!svgRef.current) return;
+        const svgEl = svgRef.current;
+        const svgData = new XMLSerializer().serializeToString(svgEl);
+        const canvas = document.createElement('canvas');
+        canvas.width = svgEl.clientWidth * 2;
+        canvas.height = svgEl.clientHeight * 2;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        const img = new Image();
+        img.onload = () => {
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            const link = document.createElement('a');
+            link.download = `semantic_graph_${data.node_name || 'graph'}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        };
+        img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+    };
+
     return (
         <div className="w-full h-full bg-black relative overflow-hidden min-h-[400px]">
+            {/* Download Button */}
+            <button onClick={handleDownload}
+                className="absolute top-3 right-3 z-20 flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all hover:scale-105 bg-black/80 border border-[#333] text-[#A020F0]">
+                ⬇ SAVE GRAPH
+            </button>
+
             <svg ref={svgRef} className="w-full h-full absolute inset-0" />
 
             {/* Legend */}

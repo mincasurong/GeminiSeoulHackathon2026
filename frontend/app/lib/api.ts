@@ -45,5 +45,10 @@ export const api = {
             body: JSON.stringify({ query, node_name: nodeName, history }),
         });
         return res.json();
+    },
+
+    getNodeImages: async (nodeName: string) => {
+        const res = await fetch(`${API_BASE_URL}/node/${encodeURIComponent(nodeName)}/images`);
+        return res.json();
     }
 };

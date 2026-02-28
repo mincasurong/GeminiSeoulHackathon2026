@@ -81,15 +81,43 @@ Return STRICT JSON with keys: node_name, static_anchors, dynamic_objects, naviga
         objects_text = ", ".join(d.get("type", "") for d in topology.get("dynamic_objects", []))
         node_name = topology.get("node_name", "Room")
 
-        prompt = f"""STRICT INSTRUCTION: Generate a strict 2D top-down bird's-eye view floor plan blueprint of this room.
-Perspective MUST be exactly 90 degrees straight down. No 3D walls, no angled views, no perspective distortion.
-It must look like a professional architectural floor plan.
+        anchors_detail = "\n".join(f"  - {a.get('anchor_id','')}: {a.get('type','')} — {a.get('description','')}" for a in topology.get("static_anchors", []))
+        objects_detail = "\n".join(f"  - {d.get('object_id','')}: {d.get('type','')} — {d.get('description','')}" for d in topology.get("dynamic_objects", []))
+        edges_detail = "\n".join(f"  - {e.get('edge_id','')}: {e.get('description','')} ({e.get('visual_cue','')})" for e in topology.get("navigable_edges", []))
 
-Room/Node Name: {node_name}.
-Structural anchors to include: {anchors_text}.
-Specific dynamic objects to include: {objects_text}.
+        prompt = f"""STRICT ARCHITECTURAL FLOOR PLAN GENERATION
 
-CRITICAL: Do not include any text labels, words, or numbers. Just the visual layout of the space."""
+## CRITICAL PERSPECTIVE REQUIREMENTS
+- Camera angle: EXACTLY 90 degrees straight down (true bird's-eye / top-down view)
+- NO 3D walls, NO isometric view, NO angled perspective, NO vanishing points
+- The output MUST look like a professional 2D architectural blueprint viewed from directly above
+- Think of it as if you removed the ceiling and looked straight down at the floor
+
+## STYLE REQUIREMENTS  
+- Clean, minimalist architectural drawing style
+- Light background (white or very light gray) with dark outlines
+- Each piece of furniture/object drawn as a simple 2D shape from above
+- Walls shown as thick dark lines forming the room boundary
+- Doors shown as arc indicators, windows as parallel lines
+- Objects drawn to relative scale with each other
+
+## ROOM: {node_name}
+
+### Structural Elements (walls, fixed furniture):
+{anchors_detail}
+
+### Objects (movable items):
+{objects_detail}
+
+### Exits / Pathways:
+{edges_detail}
+
+## OUTPUT RULES
+- Aspect ratio: 16:9 landscape
+- DO NOT include any text, labels, words, numbers, or annotations
+- DO NOT include a legend or title
+- Just the pure visual floor plan layout
+- Every listed object MUST appear in the plan at its approximate spatial position"""
 
         parts = []
         for img in gemini_images:
@@ -163,9 +191,9 @@ Coordinates are percentages of image dimensions. Ensure ymin < ymax and xmin < x
             locations = [locations]
         return locations
 
-    # ── Chat with Environment ─────────────────────────────────────────
+    # ── Chat with Environment (Image-Aware) ────────────────────────────
     @staticmethod
-    def chat_with_environment(query, topology, history):
+    def chat_with_environment(query, topology, history, map_image_b64=None, source_images=None):
         if not client:
             raise ValueError("GenAI client not initialized.")
 
@@ -173,19 +201,49 @@ Coordinates are percentages of image dimensions. Ensure ymin < ymax and xmin < x
 You have access to the following topological data about the current environment:
 {json.dumps(topology, indent=2)}
 
-Answer the user's questions about this environment based ONLY on the provided topological data.
-Be concise, helpful, and spatial-aware. If the user asks where something is, describe its location based on the static anchors and navigable edges."""
+You are also provided with:
+1. A bird's-eye view floor plan of the room (if available)
+2. The original source photographs captured from the center of the room looking in 8 directions (N, NE, E, SE, S, SW, W, NW)
 
+Answer the user's questions about this environment using BOTH the topological data AND the visual information from the images.
+Be concise, helpful, and spatial-aware. When describing locations, reference nearby anchors and edges.
+If the user asks about a path, describe the route step-by-step using the navigable edges."""
+
+        # Build message history
         contents = []
         for h in history:
             contents.append(types.Content(
                 role=h["role"],
                 parts=[types.Part.from_text(text=h["text"])]
             ))
-        contents.append(types.Content(
-            role="user",
-            parts=[types.Part.from_text(text=query)]
-        ))
+
+        # Build the user message with images
+        user_parts = []
+
+        # Attach the bird's-eye map
+        if map_image_b64 and map_image_b64.startswith("data:"):
+            try:
+                header, b64data = map_image_b64.split(",", 1)
+                mime = header.split(":")[1].split(";")[0] if ":" in header else "image/png"
+                user_parts.append(
+                    types.Part.from_bytes(data=base64.b64decode(b64data), mime_type=mime)
+                )
+            except Exception:
+                pass
+
+        # Attach relevant source images
+        if source_images:
+            for img in source_images[:4]:  # Limit to 4 to stay within token budget
+                try:
+                    raw = base64.b64decode(img["data"])
+                    user_parts.append(
+                        types.Part.from_bytes(data=raw, mime_type=img["mime_type"])
+                    )
+                except Exception:
+                    pass
+
+        user_parts.append(types.Part.from_text(text=query))
+        contents.append(types.Content(role="user", parts=user_parts))
 
         response = client.models.generate_content(
             model=MODEL_CHAT,

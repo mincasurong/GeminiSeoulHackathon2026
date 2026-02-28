@@ -20,7 +20,8 @@ app.add_middleware(
 # In-memory storage
 session_graph = nx.DiGraph()
 node_data: Dict[str, Any] = {}
-node_images: Dict[str, list] = {}  # Store images per node for chat context
+node_images: Dict[str, list] = {}       # Store source images per node
+node_map_images: Dict[str, str] = {}    # Store generated map (data URL) per node
 
 
 class QueryPayload(BaseModel):
@@ -78,6 +79,7 @@ async def upload_node(
         session_graph.add_node(actual_name, captured=True)
         node_data[actual_name] = topology
         node_images[actual_name] = gemini_images
+        node_map_images[actual_name] = map_image
 
         nodes = list(session_graph.nodes())
         if len(nodes) > 1:
@@ -110,8 +112,14 @@ async def chat(payload: ChatPayload):
             raise HTTPException(status_code=404, detail="No environment data available. Process a node first.")
 
     try:
+        # Get the stored map image and source images for this node
+        map_img = node_map_images.get(payload.node_name)
+        source_imgs = node_images.get(payload.node_name)
+
         response_text = VLAService.chat_with_environment(
-            payload.query, topology, payload.history
+            payload.query, topology, payload.history,
+            map_image_b64=map_img,
+            source_images=source_imgs
         )
         return {"response": response_text, "node_name": payload.node_name}
     except Exception as e:
@@ -150,3 +158,18 @@ async def get_node_detail(node_id: str):
     if node_id not in node_data:
         raise HTTPException(status_code=404, detail="Node not found")
     return node_data[node_id]
+
+
+@app.get("/api/node/{node_id}/images")
+async def get_node_images(node_id: str):
+    """Return the original 8 source images as data URLs for the interactive map."""
+    images = node_images.get(node_id, [])
+    if not images:
+        raise HTTPException(status_code=404, detail="No images found for this node")
+    
+    result = []
+    for img in images:
+        data_url = f"data:{img['mime_type']};base64,{img['data']}"
+        result.append(data_url)
+    return {"node_id": node_id, "images": result, "count": len(result)}
+
