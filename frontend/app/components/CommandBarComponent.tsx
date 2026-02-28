@@ -6,13 +6,22 @@ import { api, SpatialNode } from "../lib/api";
 
 interface CommandBarProps {
     topology: SpatialNode | null;
+    systemLogs: string[];
 }
 
-export default function CommandBarComponent({ topology }: CommandBarProps) {
+export default function CommandBarComponent({ topology, systemLogs }: CommandBarProps) {
     const [chatHistory, setChatHistory] = useState<{ role: 'user' | 'model', text: string }[]>([]);
     const [chatInput, setChatInput] = useState("");
     const [isChatting, setIsChatting] = useState(false);
+    const [showTerminal, setShowTerminal] = useState(false);
     const chatEndRef = useRef<HTMLDivElement>(null);
+    const terminalEndRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (terminalEndRef.current) {
+            terminalEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [systemLogs, showTerminal]);
 
     useEffect(() => {
         if (chatEndRef.current) {
@@ -50,18 +59,33 @@ export default function CommandBarComponent({ topology }: CommandBarProps) {
                     <MessageSquare className="w-4 h-4" style={{ color: 'var(--accent)' }} />
                     <h3 className="font-mono font-bold uppercase" style={{ color: 'var(--text-primary)' }}>Spatial Query Interface</h3>
                 </div>
-                {!topology && (
-                    <div className="font-mono px-2 py-1 rounded"
-                        style={{ fontSize: '10px', color: '#ef4444', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
-                        AWAITING TOPOLOGY CONTEXT
-                    </div>
-                )}
-                {topology && (
-                    <div className="font-mono px-2 py-1 rounded"
-                        style={{ fontSize: '10px', color: 'var(--accent)', background: 'var(--accent-dim)', border: '1px solid var(--border)' }}>
-                        CONTEXT: {topology.node_name}
-                    </div>
-                )}
+
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => setShowTerminal(!showTerminal)}
+                        className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono font-bold transition-all"
+                        style={{
+                            background: showTerminal ? 'var(--accent)' : 'rgba(255,255,255,0.05)',
+                            color: showTerminal ? '#000' : 'var(--text-muted)',
+                            border: `1px solid ${showTerminal ? 'var(--accent)' : 'var(--border)'}`
+                        }}
+                    >
+                        <Terminal className="w-3 h-3" />
+                        TERMINAL {showTerminal ? 'ON' : 'OFF'}
+                    </button>
+
+                    {!topology ? (
+                        <div className="font-mono px-2 py-1 rounded"
+                            style={{ fontSize: '10px', color: '#ef4444', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                            AWAITING TOPOLOGY CONTEXT
+                        </div>
+                    ) : (
+                        <div className="font-mono px-2 py-1 rounded"
+                            style={{ fontSize: '10px', color: 'var(--accent)', background: 'var(--accent-dim)', border: '1px solid var(--border)' }}>
+                            CONTEXT: {topology.node_name}
+                        </div>
+                    )}
+                </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4"
@@ -95,6 +119,24 @@ export default function CommandBarComponent({ topology }: CommandBarProps) {
                 )}
                 <div ref={chatEndRef} />
             </div>
+
+            {/* System Terminal Overlay */}
+            {showTerminal && (
+                <div className="h-32 overflow-y-auto p-3 font-mono text-[10px] space-y-1 animate-in slide-in-from-bottom"
+                    style={{ background: 'rgba(0,0,0,0.8)', borderTop: '1px solid var(--border)', color: '#00FF9D' }}>
+                    {systemLogs.length === 0 ? (
+                        <div className="opacity-50 italic">Init SPATIAL_OS System Kernel...</div>
+                    ) : (
+                        systemLogs.map((log, i) => (
+                            <div key={i} className="flex gap-2">
+                                <span className="opacity-50">[{new Date().toLocaleTimeString()}]</span>
+                                <span>{log}</span>
+                            </div>
+                        ))
+                    )}
+                    <div ref={terminalEndRef} />
+                </div>
+            )}
 
             <form onSubmit={handleChatSubmit} className="p-3 flex gap-2"
                 style={{ borderTop: '1px solid var(--border)' }}>

@@ -7,6 +7,8 @@ import CommandBarComponent from "./components/CommandBarComponent";
 import InteriorMapComponent from "./components/InteriorMapComponent";
 import SemanticGraph from "./components/SemanticGraph";
 import DigitalTwin from "./components/DigitalTwin";
+import RobotSettingsModal from "./components/RobotSettingsModal";
+import { Settings } from "lucide-react";
 
 export default function Home() {
   const [topology, setTopology] = useState<SpatialNode | null>(null);
@@ -17,8 +19,15 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<'MAP' | 'GRAPH' | 'TWIN'>('MAP');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [fontSize, setFontSize] = useState<'S' | 'M' | 'L'>('M');
+  const [robotApiUrl, setRobotApiUrl] = useState("http://localhost:8080/nav2/follow_waypoints");
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [systemLogs, setSystemLogs] = useState<string[]>([]);
 
   const fontSizeMap = { S: '13pt', M: '14pt', L: '16pt' };
+
+  const addSystemLog = (msg: string) => {
+    setSystemLogs(prev => [...prev, msg]);
+  };
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -98,6 +107,13 @@ export default function Home() {
               className="w-9 h-9 rounded-lg flex items-center justify-center transition-all hover:scale-105"
               style={{ background: cardBg, border: `1px solid ${border}`, backdropFilter: 'blur(16px)', fontSize: '16px' }}>
               {isDark ? '☀️' : '🌙'}
+            </button>
+
+            {/* Settings Gear */}
+            <button onClick={() => setIsSettingsOpen(true)}
+              className="w-9 h-9 rounded-lg flex items-center justify-center transition-all hover:scale-105"
+              style={{ background: cardBg, border: `1px solid ${border}`, backdropFilter: 'blur(16px)' }}>
+              <Settings className="w-5 h-5" style={{ color: textPrimary }} />
             </button>
 
             {/* Status */}
@@ -199,6 +215,7 @@ export default function Home() {
                       mapImage={mapImage} locations={locations} topology={topology}
                       sourceImages={sourceImages} selectedObjectId={selectedObjectId}
                       onSelectObject={setSelectedObjectId} theme={theme}
+                      robotApiUrl={robotApiUrl} onAddSystemLog={addSystemLog}
                     />
                   )}
                   {viewMode === 'GRAPH' && <SemanticGraph data={topology} />}
@@ -229,7 +246,7 @@ export default function Home() {
           </div>
 
           {/* Chat Panel */}
-          <CommandBarComponent topology={topology} />
+          <CommandBarComponent topology={topology} systemLogs={systemLogs} />
         </div>
       </main>
 
@@ -240,6 +257,13 @@ export default function Home() {
           <span>Powered by Gemini VLA · Text-Bridge Architecture</span>
         </div>
       </footer>
+      {/* Settings Modal */}
+      <RobotSettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        apiUrl={robotApiUrl}
+        onSave={setRobotApiUrl}
+      />
     </div>
   );
 }
