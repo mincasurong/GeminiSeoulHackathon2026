@@ -1,7 +1,8 @@
 ﻿# 🗺️ GeminiSpace — Indoor Navigator Powered by Gemini
 
 > **Google Indoor Navigation** — Capture 8 photos from the center of any room, and Gemini builds you a semantic map you can ask questions about.
-<img width="1024" height="559" alt="image" src="https://github.com/user-attachments/assets/5e3daee6-cdea-481f-8f23-1cc1041e7fe6" />
+<img width="1024" height="559" alt="image" src="https://github.com/user-attachments/assets/83fcacc2-b051-4788-ba0f-31568c97bab9" />
+
 
 ---
 
