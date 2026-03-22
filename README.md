@@ -8,7 +8,7 @@
 
 ## What Is This?
 
-Spatial OS is a **Vision-Language-Action (VLA)** system that turns ordinary room photos into an interactive indoor map. Think of it as **Google Maps Navigator, but for indoors**.
+GeminiSpace is a **Vision-Language-Action (VLA)** system that turns ordinary room photos into an interactive indoor map. Think of it as **Google Maps Navigator, but for indoors**.
 
 **How it works:**
 1. 📸 Stand in the center of a room and capture **8 directional photos** (N, NE, E, SE, S, SW, W, NW)
