@@ -78,26 +78,56 @@ Frontend runs on `http://localhost:3000`
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────┐
-│  Frontend (Next.js)     http://localhost:3000     │
-│  ┌──────────┐ ┌──────────┐ ┌───────────────────┐ │
-│  │ Upload   │ │ MAP /    │ │ Spatial Query     │ │
-│  │ 8 Photos │ │ GRAPH /  │ │ Chat Interface    │ │
-│  │          │ │ TWIN     │ │ (Gemini-powered)  │ │
-│  └────┬─────┘ └────▲─────┘ └────────┬──────────┘ │
-└───────┼────────────┼────────────────┼────────────┘
-        │            │                │
-        ▼            │                ▼
-┌──────────────────────────────────────────────────┐
-│  Backend (FastAPI)      http://localhost:8000     │
-│                                                  │
-│  POST /api/upload-node  ── 3-Step Pipeline ──►   │
-│    Step 1: Topology     (gemini-3-flash)         │
-│    Step 2: Map Gen      (gemini-2.5-flash-image) │
-│    Step 3: Localization (gemini-3-flash)          │
-│                                                  │
-│  POST /api/chat  ── Spatial Q&A (gemini-3-flash) │
-└──────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│                      [ 1. INPUT ]                       │
+│  8 Directional Photos (Captured from the room center)   │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│                 [ 2. CLIENT FRONTEND ]                  │
+│ Next.js UI: Batch image upload & node initialization    │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│               [ 3. FASTAPI BACKEND SERVER ]             │
+│        Orchestrating the 3-Step Gemini VLA Pipeline     │
+│                                                         │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │ Step 1: Semantic Topology Extraction              │  │
+│  │ Model: Gemini 3 Flash                             │  │
+│  │ Task: Analyzes 8 images -> Extracts objects/edges │  │
+│  └────────────────────────┬──────────────────────────┘  │
+│                           ▼                             │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │ Step 2: Bird's-Eye Map Generation                 │  │
+│  │ Model: Gemini 3 Flash Image                       │  │
+│  │ Task: Synthesizes a 2D floor plan image           │  │
+│  └────────────────────────┬──────────────────────────┘  │
+│                           ▼                             │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │ Step 3: Object Localization                       │  │
+│  │ Model: Gemini 3 Flash                             │  │
+│  │ Task: Maps physical bounding boxes to the 2D map  │  │
+│  └───────────────────────────────────────────────────┘  │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│                     [ 4. OUTPUTS ]                      │
+│                                                         │
+│ 📍 MAP: Interactive floor plan with bounding boxes      │
+│ 🔗 GRAPH: D3.js spatial relationship topology graph     │
+│ 🧊 TWIN: 3D voxel representation                        │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│             [ 5. SPATIAL QUERY INTERFACE ]              │
+│ Model: Gemini 3 Flash                                   │
+│ Task: Real-time Q&A ("How do I get to the fridge?")     │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ## Gemini Models Used
