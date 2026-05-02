@@ -285,7 +285,7 @@ export default function Home() {
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');
                         a.href = url;
-                        a.download = `topology_${topology.node_name.replace(/[^a-zA-Z0-9]/g, '_')}.json`;
+                        a.setAttribute('download', `topology_${topology.node_name.replace(/[^a-zA-Z0-9]/g, '_')}.json`);
                         a.style.display = 'none';
                         document.body.appendChild(a);
                         a.click();
