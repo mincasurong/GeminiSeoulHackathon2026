@@ -5,3 +5,4 @@ google-genai
 pydantic
 networkx
 python-dotenv
+ollama
