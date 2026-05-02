@@ -2,14 +2,15 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Terminal, Send, MessageSquare, Loader2 } from "lucide-react";
-import { api, SpatialNode } from "../lib/api";
+import { api, SpatialNode, EngineType } from "../lib/api";
 
 interface CommandBarProps {
     topology: SpatialNode | null;
     systemLogs: string[];
+    engine: EngineType;
 }
 
-export default function CommandBarComponent({ topology, systemLogs }: CommandBarProps) {
+export default function CommandBarComponent({ topology, systemLogs, engine }: CommandBarProps) {
     const [chatHistory, setChatHistory] = useState<{ role: 'user' | 'model', text: string }[]>([]);
     const [chatInput, setChatInput] = useState("");
     const [isChatting, setIsChatting] = useState(false);
@@ -40,7 +41,7 @@ export default function CommandBarComponent({ topology, systemLogs }: CommandBar
         setIsChatting(true);
 
         try {
-            const data = await api.chat(userMsg, topology.node_name, newHistory);
+            const data = await api.chat(userMsg, topology.node_name, newHistory, engine);
             setChatHistory(prev => [...prev, { role: 'model', text: data.response || "No response." }]);
         } catch (err) {
             console.error("Chat error:", err);

@@ -9,6 +9,7 @@ load_dotenv()
 
 # Configure Gemini
 api_key = os.getenv("GOOGLE_API_KEY")
+print(f"DEBUG: vla_service loaded api_key prefix: {str(api_key)[:15]}")
 if not api_key:
     print("WARNING: GOOGLE_API_KEY not found in environment.")
     client = None

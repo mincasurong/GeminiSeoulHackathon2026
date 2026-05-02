@@ -136,7 +136,7 @@ export default function InteriorMapComponent({
             <img src={mapImage} alt="Bird's Eye View" className="w-full h-full object-contain" />
 
             {/* Interactive Bounding Boxes */}
-            {locations?.map(loc => {
+            {locations?.map((loc, idx) => {
                 const isHovered = hoveredId === loc.object_id;
                 const isSelected = selectedObjectId === loc.object_id;
                 const label = getObjectLabel(loc.object_id);
@@ -144,7 +144,7 @@ export default function InteriorMapComponent({
 
                 return (
                     <div
-                        key={loc.object_id}
+                        key={`${loc.object_id}-${idx}`}
                         onMouseEnter={() => setHoveredId(loc.object_id)}
                         onMouseLeave={() => setHoveredId(null)}
                         onClick={(e) => { e.stopPropagation(); handleObjectClick(loc.object_id); }}

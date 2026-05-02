@@ -1,20 +1,32 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { UploadCloud, CheckCircle2, Loader2, Camera } from "lucide-react";
-import { api, SpatialNode, ObjectLocation } from "../lib/api";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { CheckCircle2, Loader2, Camera, Circle } from "lucide-react";
+import { api, SpatialNode, ObjectLocation, EngineType } from "../lib/api";
 
 interface NodeCaptureProps {
     onAnalysisComplete: (topology: SpatialNode, mapImage: string, locations: ObjectLocation[]) => void;
+    engine: EngineType;
+    onBusyChange: (busy: boolean) => void;
 }
 
-export default function NodeCaptureComponent({ onAnalysisComplete }: NodeCaptureProps) {
+const STEPS = [
+    { id: 1, label: "Extracting topology" },
+    { id: 2, label: "Generating floor plan" },
+    { id: 3, label: "Localizing objects" },
+];
+
+export default function NodeCaptureComponent({ onAnalysisComplete, engine, onBusyChange }: NodeCaptureProps) {
     const [files, setFiles] = useState<(File | null)[]>(Array(8).fill(null));
     const [isUploading, setIsUploading] = useState(false);
     const [message, setMessage] = useState("");
+    const [currentStep, setCurrentStep] = useState(0); // 0 = not started, 1-3 = active step
+    const hasAutoTriggered = useRef(false);
 
     const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
     const uploadedCount = files.filter(f => f !== null).length;
+
+    const engineLabel = engine === "gemma" ? "Gemma 4" : "Gemini";
 
     const handleBatchFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
@@ -23,6 +35,7 @@ export default function NodeCaptureComponent({ onAnalysisComplete }: NodeCapture
             for (let i = 0; i < Math.min(8, selectedFiles.length); i++) {
                 newFiles[i] = selectedFiles[i];
             }
+            hasAutoTriggered.current = false;
             setFiles(newFiles);
         }
     };
@@ -31,6 +44,7 @@ export default function NodeCaptureComponent({ onAnalysisComplete }: NodeCapture
         if (e.target.files && e.target.files.length > 0) {
             const newFiles = [...files];
             newFiles[index] = e.target.files[0];
+            hasAutoTriggered.current = false;
             setFiles(newFiles);
         }
     };
@@ -40,21 +54,33 @@ export default function NodeCaptureComponent({ onAnalysisComplete }: NodeCapture
 
         setIsUploading(true);
         setMessage("");
+        setCurrentStep(1);
+        onBusyChange(true);
 
         const nodeName = `room_${Date.now().toString(36)}`;
         const formData = new FormData();
         formData.append("node_name", nodeName);
+        formData.append("engine", engine);
 
         files.forEach((file) => {
             if (file) formData.append("images", file);
         });
 
+        // Simulate step progression since the backend processes all in one request
+        const stepTimer = setInterval(() => {
+            setCurrentStep(prev => {
+                if (prev < 3) return prev + 1;
+                return prev;
+            });
+        }, engine === "gemma" ? 60_000 : 15_000); // Gemma is slower
+
         try {
-            setMessage("⏳ Step 1/4: Extracting topology...");
             const data = await api.uploadNode(formData);
+            clearInterval(stepTimer);
+            setCurrentStep(3);
 
             if (data.status === "success") {
-                setMessage(`✓ ${data.message}`);
+                setMessage(`Done: ${data.message}`);
                 if (data.topology && data.map_image) {
                     onAnalysisComplete(data.topology, data.map_image, data.locations || []);
                 }
@@ -63,16 +89,20 @@ export default function NodeCaptureComponent({ onAnalysisComplete }: NodeCapture
                 setMessage(data.detail || "Upload failed.");
             }
         } catch (err) {
+            clearInterval(stepTimer);
             console.error(err);
-            setMessage("Network error connecting to VLA Backend.");
+            setMessage("Network error connecting to backend.");
         } finally {
             setIsUploading(false);
+            onBusyChange(false);
+            setTimeout(() => setCurrentStep(0), 3000);
         }
-    }, [files, isUploading, onAnalysisComplete]);
+    }, [files, isUploading, onAnalysisComplete, engine]);
 
-    // Auto-trigger when all 8 images are uploaded
+    // Auto-trigger when all 8 images are uploaded (fires only once per batch)
     useEffect(() => {
-        if (uploadedCount >= 8 && !isUploading) {
+        if (uploadedCount >= 8 && !isUploading && !hasAutoTriggered.current) {
+            hasAutoTriggered.current = true;
             uploadNode();
         }
     }, [uploadedCount, isUploading, uploadNode]);
@@ -122,24 +152,56 @@ export default function NodeCaptureComponent({ onAnalysisComplete }: NodeCapture
                 </div>
             </div>
 
-            {/* Status / Progress */}
-            <div className="mt-2 text-center font-mono" style={{ color: 'var(--text-muted)' }}>
-                {isUploading ? (
-                    <div className="flex items-center justify-center gap-2 py-2 rounded-lg"
-                        style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>{message || "Processing..."}</span>
+            {/* Step Progress Bar */}
+            {isUploading && currentStep > 0 ? (
+                <div className="mt-2 rounded-xl p-3" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                    <div className="flex items-center gap-1.5 mb-2">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--accent)' }} />
+                        <span className="font-mono font-bold uppercase" style={{ fontSize: '10px', color: 'var(--accent)', letterSpacing: '0.1em' }}>
+                            Processing with {engineLabel}
+                        </span>
                     </div>
-                ) : message ? (
-                    <div className="py-2 rounded-lg" style={{ color: message.includes("✓") ? 'var(--accent)' : 'var(--text-muted)' }}>
-                        {message}
+                    <div className="flex flex-col gap-1.5">
+                        {STEPS.map(step => {
+                            const isDone = currentStep > step.id;
+                            const isActive = currentStep === step.id;
+                            return (
+                                <div key={step.id} className="flex items-center gap-2 font-mono" style={{ fontSize: '11px' }}>
+                                    {isDone ? (
+                                        <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--accent)' }} />
+                                    ) : isActive ? (
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin flex-shrink-0" style={{ color: 'var(--accent)' }} />
+                                    ) : (
+                                        <Circle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--text-muted)', opacity: 0.3 }} />
+                                    )}
+                                    <span style={{
+                                        color: isDone ? 'var(--accent)' : isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+                                        opacity: isDone || isActive ? 1 : 0.4,
+                                        fontWeight: isActive ? 700 : 400,
+                                    }}>
+                                        Step {step.id}/3: {step.label}
+                                        {isActive && <span className="ml-1" style={{ color: 'var(--text-muted)' }}>...</span>}
+                                    </span>
+                                </div>
+                            );
+                        })}
                     </div>
-                ) : (
-                    <div className="py-2">
-                        <span style={{ color: 'var(--accent)' }}>{uploadedCount}</span>/8 images · {uploadedCount >= 8 ? 'Auto-synthesizing...' : 'Upload all 8 to begin'}
-                    </div>
-                )}
-            </div>
+                </div>
+            ) : (
+                <div className="mt-2 text-center font-mono" style={{ color: 'var(--text-muted)' }}>
+                    {message ? (
+                        <div className="py-2 rounded-lg" style={{ color: message.startsWith("Done") ? 'var(--accent)' : 'var(--text-muted)' }}>
+                            {message}
+                        </div>
+                    ) : (
+                        <div className="py-2">
+                            <span style={{ color: 'var(--accent)' }}>{uploadedCount}</span>/8 images
+                            {' '}&middot;{' '}
+                            {uploadedCount >= 8 ? 'Auto-synthesizing...' : 'Upload all 8 to begin'}
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
