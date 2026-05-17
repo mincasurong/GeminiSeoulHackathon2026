@@ -3,6 +3,8 @@
 > **Google Indoor Navigation** — Capture 8 photos from the center of any room, and AI builds you a semantic map you can ask questions about.
 > Now with **local-first inference** via Gemma 4 on Ollama! 🚀
 
+<img width="800" height="450" alt="ezgif-78af7c4d1b7d8830" src="https://github.com/user-attachments/assets/68b51882-fc11-4c8d-a8b5-deb60df167dc" />
+
 ---
 
 ## 🆕 Gemma 4 Local Inference
