@@ -1,0 +1,91 @@
+﻿{
+    "node_name":  "Building Elevator Lobby and Stairwell",
+    "static_anchors":  [
+                           {
+                               "anchor_id":  "floor_directory",
+                               "type":  "wall-mounted sign",
+                               "description":  "A directory on a marble wall listing locations for floors 1 through 4.",
+                               "image_indices":  [
+                                                     0
+                                                 ]
+                           },
+                           {
+                               "anchor_id":  "elevator",
+                               "type":  "architectural feature",
+                               "description":  "An elevator with reflective metal doors set into a light grey marble wall.",
+                               "image_indices":  [
+                                                     0,
+                                                     1
+                                                 ]
+                           },
+                           {
+                               "anchor_id":  "golden_door",
+                               "type":  "entrance",
+                               "description":  "A glass door with a golden frame leading into a reception or dining area.",
+                               "image_indices":  [
+                                                     2,
+                                                     3
+                                                 ]
+                           },
+                           {
+                               "anchor_id":  "reception_desk",
+                               "type":  "heavy furniture",
+                               "description":  "A marble reception counter located within the room behind the golden door.",
+                               "image_indices":  [
+                                                     3
+                                                 ]
+                           },
+                           {
+                               "anchor_id":  "staircase_structure",
+                               "type":  "architectural feature",
+                               "description":  "A staircase with white metal railings and dark grey steps connecting multiple floors.",
+                               "image_indices":  [
+                                                     4,
+                                                     5,
+                                                     6,
+                                                     7
+                                                 ]
+                           }
+                       ],
+    "dynamic_objects":  [
+                            {
+                                "object_id":  "potted_plant",
+                                "type":  "decor",
+                                "description":  "A green indoor plant in a cylindrical grey pot near the golden door.",
+                                "image_indices":  [
+                                                      2,
+                                                      3
+                                                  ]
+                            },
+                            {
+                                "object_id":  "vista_restaurant_sign",
+                                "type":  "signage",
+                                "description":  "A floor-standing black and white sign providing information about the Vista Restaurant on the 3rd floor.",
+                                "image_indices":  [
+                                                      7
+                                                  ]
+                            }
+                        ],
+    "navigable_edges":  [
+                            {
+                                "edge_id":  "elevator_entry",
+                                "description":  "Entry into the elevator for vertical transit.",
+                                "visual_cue":  "reflective metal elevator doors next to the floor directory"
+                            },
+                            {
+                                "edge_id":  "reception_entry",
+                                "description":  "Entry through the golden-framed door into the Vista Restaurant and reception area.",
+                                "visual_cue":  "partially open golden metal and glass door"
+                            },
+                            {
+                                "edge_id":  "stairs_up",
+                                "description":  "Navigating up the stairs towards the 3rd floor (Vista Pub/Restaurant).",
+                                "visual_cue":  "white railing staircase with signs pointing to floor 3"
+                            },
+                            {
+                                "edge_id":  "stairs_down",
+                                "description":  "Navigating down the stairs towards the 2nd floor (Floating Island).",
+                                "visual_cue":  "stairwell landing with signage indicating 2F below"
+                            }
+                        ]
+}

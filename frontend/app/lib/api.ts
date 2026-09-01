@@ -1,6 +1,6 @@
-const API_BASE_URL = "http://localhost:8000/api";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
 
-export type EngineType = "gemma" | "gemini";
+export type EngineType = "gemini";
 
 export interface SpatialNode {
     node_name: string;
@@ -48,7 +48,7 @@ export const api = {
         return res.json();
     },
 
-    chat: async (query: string, nodeName: string, history: { role: string, text: string }[], engine: EngineType = "gemma") => {
+    chat: async (query: string, nodeName: string, history: { role: string, text: string }[], engine: EngineType = "gemini") => {
         const res = await fetch(`${API_BASE_URL}/chat`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },

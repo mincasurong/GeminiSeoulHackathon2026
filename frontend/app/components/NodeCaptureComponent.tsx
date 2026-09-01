@@ -2,11 +2,10 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { CheckCircle2, Loader2, Camera, Circle } from "lucide-react";
-import { api, SpatialNode, ObjectLocation, EngineType } from "../lib/api";
+import { api, SpatialNode, ObjectLocation } from "../lib/api";
 
 interface NodeCaptureProps {
     onAnalysisComplete: (topology: SpatialNode, mapImage: string, locations: ObjectLocation[]) => void;
-    engine: EngineType;
     onBusyChange: (busy: boolean) => void;
 }
 
@@ -16,7 +15,7 @@ const STEPS = [
     { id: 3, label: "Localizing objects" },
 ];
 
-export default function NodeCaptureComponent({ onAnalysisComplete, engine, onBusyChange }: NodeCaptureProps) {
+export default function NodeCaptureComponent({ onAnalysisComplete, onBusyChange }: NodeCaptureProps) {
     const [files, setFiles] = useState<(File | null)[]>(Array(8).fill(null));
     const [isUploading, setIsUploading] = useState(false);
     const [message, setMessage] = useState("");
@@ -25,8 +24,6 @@ export default function NodeCaptureComponent({ onAnalysisComplete, engine, onBus
 
     const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
     const uploadedCount = files.filter(f => f !== null).length;
-
-    const engineLabel = engine === "gemma" ? "Gemma 4" : "Gemini";
 
     const handleBatchFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
@@ -60,19 +57,19 @@ export default function NodeCaptureComponent({ onAnalysisComplete, engine, onBus
         const nodeName = `room_${Date.now().toString(36)}`;
         const formData = new FormData();
         formData.append("node_name", nodeName);
-        formData.append("engine", engine);
+        formData.append("engine", "gemini");
 
         files.forEach((file) => {
             if (file) formData.append("images", file);
         });
 
-        // Simulate step progression since the backend processes all in one request
+        // Simulate step progression
         const stepTimer = setInterval(() => {
             setCurrentStep(prev => {
                 if (prev < 3) return prev + 1;
                 return prev;
             });
-        }, engine === "gemma" ? 60_000 : 15_000); // Gemma is slower
+        }, 15_000);
 
         try {
             const data = await api.uploadNode(formData);
@@ -97,7 +94,7 @@ export default function NodeCaptureComponent({ onAnalysisComplete, engine, onBus
             onBusyChange(false);
             setTimeout(() => setCurrentStep(0), 3000);
         }
-    }, [files, isUploading, onAnalysisComplete, engine]);
+    }, [files, isUploading, onAnalysisComplete]);
 
     // Auto-trigger when all 8 images are uploaded (fires only once per batch)
     useEffect(() => {
@@ -158,7 +155,7 @@ export default function NodeCaptureComponent({ onAnalysisComplete, engine, onBus
                     <div className="flex items-center gap-1.5 mb-2">
                         <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--accent)' }} />
                         <span className="font-mono font-bold uppercase" style={{ fontSize: '10px', color: 'var(--accent)', letterSpacing: '0.1em' }}>
-                            Processing with {engineLabel}
+                            Processing with Gemini
                         </span>
                     </div>
                     <div className="flex flex-col gap-1.5">

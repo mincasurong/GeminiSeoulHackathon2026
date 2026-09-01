@@ -47,7 +47,7 @@ export default function RobotSettingsModal({ isOpen, onClose, apiUrl, onSave }: 
                             value={url}
                             onChange={(e) => setUrl(e.target.value)}
                             className="w-full rounded-lg px-4 py-3 font-mono focus:outline-none focus:ring-2 transition-all"
-                            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)', focusRingColor: 'var(--accent)' }}
+                            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
                             placeholder="http://localhost:8080/nav2/follow_waypoints"
                         />
                     </div>
