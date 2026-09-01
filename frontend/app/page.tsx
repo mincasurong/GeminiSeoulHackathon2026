@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { SpatialNode, ObjectLocation, api, EngineType } from './lib/api';
+import { SpatialNode, ObjectLocation, api } from './lib/api';
 import NodeCaptureComponent from "./components/NodeCaptureComponent";
 import CommandBarComponent from "./components/CommandBarComponent";
 import InteriorMapComponent from "./components/InteriorMapComponent";
 import SemanticGraph from "./components/SemanticGraph";
 import DigitalTwin from "./components/DigitalTwin";
 import RobotSettingsModal from "./components/RobotSettingsModal";
-import { Settings, Cpu, Cloud, Download } from "lucide-react";
+import { Settings, Cloud, Download } from "lucide-react";
 
 export default function Home() {
   const [topology, setTopology] = useState<SpatialNode | null>(null);
@@ -22,7 +22,6 @@ export default function Home() {
   const [robotApiUrl, setRobotApiUrl] = useState("http://localhost:8080/nav2/follow_waypoints");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [systemLogs, setSystemLogs] = useState<string[]>([]);
-  const [engine, setEngine] = useState<EngineType>("gemma");
   const [isBusy, setIsBusy] = useState(false);
 
   const fontSizeMap = { S: '13pt', M: '14pt', L: '16pt' };
@@ -62,12 +61,9 @@ export default function Home() {
   const textMuted = isDark ? '#64748b' : '#6b7280';
   const visBg = isDark ? '#000' : '#f5f5f5';
 
-  // Engine-specific colors
-  const gemmaColor = '#F97316';  // orange for local
   const geminiColor = '#3B82F6'; // blue for cloud
-  const activeEngineColor = engine === 'gemma' ? gemmaColor : geminiColor;
 
-  // "How It Works" steps with model info per engine
+  // "How It Works" steps with model info
   const howItWorks = [
     {
       num: '01',
@@ -77,22 +73,22 @@ export default function Home() {
     {
       num: '02',
       text: 'AI extracts topology -- objects, anchors, exits',
-      model: engine === 'gemma' ? 'Gemma 4' : 'Gemini',
+      model: 'Gemini',
     },
     {
       num: '03',
       text: 'Text-Bridge converts photos to layout description',
-      model: engine === 'gemma' ? 'Gemma 4' : 'Gemini',
+      model: 'Gemini',
     },
     {
       num: '04',
       text: "Generates 2D bird's-eye floor plan from text",
-      model: 'Gemini',  // Always Gemini (image generation)
+      model: 'Gemini',
     },
     {
       num: '05',
       text: 'Ask spatial queries: "Where is the coffee pot?"',
-      model: engine === 'gemma' ? 'Gemma 4' : 'Gemini',
+      model: 'Gemini',
     },
   ];
 
@@ -128,39 +124,6 @@ export default function Home() {
           {/* Controls */}
           <div className="flex items-center gap-3">
 
-            {/* Engine Toggle */}
-            <div className="rounded-lg p-0.5 flex items-center"
-              style={{
-                background: cardBg,
-                border: `1px solid ${border}`,
-                backdropFilter: 'blur(16px)',
-                opacity: isBusy ? 0.5 : 1,
-                pointerEvents: isBusy ? 'none' : 'auto',
-              }}>
-              <button onClick={() => setEngine('gemma')}
-                disabled={isBusy}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded font-mono font-bold transition-all"
-                style={{
-                  background: engine === 'gemma' ? gemmaColor : 'transparent',
-                  color: engine === 'gemma' ? '#fff' : textMuted,
-                  fontSize: '11px',
-                }}>
-                <Cpu className="w-3.5 h-3.5" />
-                GEMMA
-              </button>
-              <button onClick={() => setEngine('gemini')}
-                disabled={isBusy}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded font-mono font-bold transition-all"
-                style={{
-                  background: engine === 'gemini' ? geminiColor : 'transparent',
-                  color: engine === 'gemini' ? '#fff' : textMuted,
-                  fontSize: '11px',
-                }}>
-                <Cloud className="w-3.5 h-3.5" />
-                GEMINI
-              </button>
-            </div>
-
             {/* Font Sizer */}
             <div className="rounded-lg p-0.5 flex" style={{ background: cardBg, border: `1px solid ${border}`, backdropFilter: 'blur(16px)' }}>
               {(['S', 'M', 'L'] as const).map(s => (
@@ -176,7 +139,7 @@ export default function Home() {
             <button onClick={() => setTheme(isDark ? 'light' : 'dark')}
               className="w-9 h-9 rounded-lg flex items-center justify-center transition-all hover:scale-105"
               style={{ background: cardBg, border: `1px solid ${border}`, backdropFilter: 'blur(16px)', fontSize: '16px' }}>
-              {isDark ? '\u2600\uFE0F' : '\uD83C\uDF19'}
+              {isDark ? '☀️' : '🌙'}
             </button>
 
             {/* Settings Gear */}
@@ -189,9 +152,9 @@ export default function Home() {
             {/* Status */}
             <div className="hidden md:flex rounded-lg items-center gap-2 px-3 py-1.5"
               style={{ background: cardBg, border: `1px solid ${border}`, backdropFilter: 'blur(16px)' }}>
-              <span className="w-2 h-2 rounded-full pulse-dot" style={{ background: activeEngineColor }} />
-              <span className="font-mono font-bold uppercase" style={{ color: activeEngineColor, fontSize: '10px', letterSpacing: '0.15em' }}>
-                {engine === 'gemma' ? 'GEMMA LOCAL' : 'GEMINI CLOUD'}
+              <span className="w-2 h-2 rounded-full pulse-dot" style={{ background: geminiColor }} />
+              <span className="font-mono font-bold uppercase" style={{ color: geminiColor, fontSize: '10px', letterSpacing: '0.15em' }}>
+                GEMINI CLOUD
               </span>
             </div>
           </div>
@@ -209,16 +172,16 @@ export default function Home() {
         <div className="lg:col-span-4 flex flex-col gap-6">
           <div className="rounded-2xl p-6" style={{ background: cardBg, border: `1px solid ${border}`, backdropFilter: 'blur(16px)' }}>
             <div className="flex items-center gap-2 mb-4 pb-3" style={{ borderBottom: `1px solid ${border}` }}>
-              <span>&#x1F4F8;</span>
+              <span>📸</span>
               <h2 className="font-mono font-bold uppercase tracking-wider">Node Capture</h2>
             </div>
-            <NodeCaptureComponent onAnalysisComplete={handleAnalysisComplete} engine={engine} onBusyChange={setIsBusy} />
+            <NodeCaptureComponent onAnalysisComplete={handleAnalysisComplete} onBusyChange={setIsBusy} />
           </div>
 
           {/* How It Works */}
           <div className="rounded-2xl p-5" style={{ background: cardBg, border: `1px solid ${border}`, backdropFilter: 'blur(16px)' }}>
             <div className="flex items-center gap-2 mb-3">
-              <span>&#x1F916;</span>
+              <span>🤖</span>
               <span className="font-mono font-bold uppercase" style={{ color: accent }}>How It Works</span>
             </div>
             <ol className="flex flex-col gap-2.5 font-mono" style={{ color: textMuted }}>
@@ -233,13 +196,9 @@ export default function Home() {
                         style={{
                           fontSize: '9px',
                           letterSpacing: '0.05em',
-                          background: step.model === 'Gemma 4'
-                            ? 'rgba(249, 115, 22, 0.15)'
-                            : 'rgba(59, 130, 246, 0.15)',
-                          color: step.model === 'Gemma 4' ? gemmaColor : geminiColor,
-                          border: `1px solid ${step.model === 'Gemma 4'
-                            ? 'rgba(249, 115, 22, 0.3)'
-                            : 'rgba(59, 130, 246, 0.3)'}`,
+                          background: 'rgba(59, 130, 246, 0.15)',
+                          color: geminiColor,
+                          border: '1px solid rgba(59, 130, 246, 0.3)',
                         }}
                       >
                         {step.model}
@@ -265,9 +224,9 @@ export default function Home() {
                   style={{ borderBottom: `1px solid ${border}`, background: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.03)' }}>
                   <div className="flex items-center gap-2">
                     <span>
-                      {viewMode === 'MAP' && '\uD83D\uDDFA\uFE0F'}
-                      {viewMode === 'GRAPH' && '\uD83D\uDD17'}
-                      {viewMode === 'TWIN' && '\uD83E\uDDCA'}
+                      {viewMode === 'MAP' && '🗺️'}
+                      {viewMode === 'GRAPH' && '🔗'}
+                      {viewMode === 'TWIN' && '🧊'}
                     </span>
                     <h2 className="font-mono font-bold uppercase tracking-wider">
                       {viewMode === 'MAP' && 'Interactive Floor Plan'}
@@ -285,7 +244,7 @@ export default function Home() {
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');
                         a.href = url;
-                        a.download = `topology_${topology.node_name.replace(/[^a-zA-Z0-9]/g, '_')}.json`;
+                        a.setAttribute('download', `topology_${topology.node_name.replace(/[^a-zA-Z0-9]/g, '_')}.json`);
                         a.style.display = 'none';
                         document.body.appendChild(a);
                         a.click();
@@ -343,7 +302,7 @@ export default function Home() {
                 <div className="relative mb-6">
                   <div className="w-20 h-20 rounded-2xl flex items-center justify-center"
                     style={{ background: accentDim, border: `2px dashed ${borderStrong}`, fontSize: '32px' }}>
-                    &#x1F52D;
+                    🔭
                   </div>
                 </div>
                 <h3 className="font-mono font-bold uppercase tracking-wider mb-2">
@@ -357,7 +316,7 @@ export default function Home() {
           </div>
 
           {/* Chat Panel */}
-          <CommandBarComponent topology={topology} systemLogs={systemLogs} engine={engine} />
+          <CommandBarComponent topology={topology} systemLogs={systemLogs} />
         </div>
       </main>
 
@@ -367,8 +326,8 @@ export default function Home() {
           <span>Google Gemini Seoul Hackathon 2026</span>
           <span>
             Powered by{' '}
-            <span style={{ color: engine === 'gemma' ? gemmaColor : geminiColor, fontWeight: 700 }}>
-              {engine === 'gemma' ? 'Gemma 4 (Local)' : 'Gemini (Cloud)'}
+            <span style={{ color: geminiColor, fontWeight: 700 }}>
+              Gemini (Cloud)
             </span>
             {' '}&middot; Text-Bridge Architecture
           </span>

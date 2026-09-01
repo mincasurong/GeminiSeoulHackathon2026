@@ -1,22 +1,26 @@
+import os
 import sys
 import asyncio
 import networkx as nx
 import base64
+import uvicorn
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 
-from local_gemma_service import LocalGemmaService
-from vla_service import VLAService as GeminiService
+from vla_service import VLAService
 
-def _get_service(engine: str):
-    """Return the correct service class based on engine selection."""
-    if engine == "gemma":
-        return LocalGemmaService
-    return GeminiService
+app = FastAPI(title="Spatial AI SaaS Backend", version="1.0.0")
 
-app = FastAPI(title="Spatial AI SaaS Backend")
+# Health check endpoints for Cloud Run
+@app.get("/")
+def read_root():
+    return {"status": "ok", "message": "Spatial AI SaaS Backend is running on Cloud Run"}
+
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}
 
 # Suppress harmless Windows asyncio ConnectionResetError (WinError 10054)
 # that fires after a successful response when the browser closes the socket.
@@ -41,7 +45,7 @@ if sys.platform == "win32":
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -63,22 +67,15 @@ class ChatPayload(BaseModel):
     query: str
     node_name: str
     history: List[Dict[str, str]] = []
-    engine: str = "gemma"
+    engine: str = "gemini"
 
 
 @app.get("/api/engines")
 async def get_engines():
     """Return available engines and their status."""
-    gemma_ok = True
-    try:
-        from local_gemma_service import _client
-        _client.list()  # Quick ping
-    except Exception:
-        gemma_ok = False
     return {
         "engines": [
-            {"id": "gemma",  "name": "Gemma 4 (Local/Ollama)", "available": gemma_ok},
-            {"id": "gemini", "name": "Gemini (Cloud API)",     "available": True},
+            {"id": "gemini", "name": "Gemini (Cloud API)", "available": True},
         ]
     }
 
@@ -87,10 +84,10 @@ async def get_engines():
 async def upload_node(
     node_name: str = Form(...),
     images: List[UploadFile] = File(...),
-    engine: str = Form("gemma")
+    engine: str = Form("gemini")
 ):
-    service = _get_service(engine)
-    engine_label = "Gemma (local)" if engine == "gemma" else "Gemini (cloud)"
+    service = VLAService
+    engine_label = "Gemini (cloud)"
     gemini_images = []
     for img in images:
         content = await img.read()
@@ -142,8 +139,8 @@ async def upload_node(
             "topology": topology,
             "map_image": map_image,
             "locations": locations,
-            "engine": engine,
-            "message": f"Processed {len(images)} images with {engine_label}"
+            "engine": "gemini",
+            "message": f"Processed {len(images)} images with Gemini"
         }
     except Exception as e:
         print(f"VLA Error: {e}")
@@ -154,7 +151,7 @@ async def upload_node(
 
 @app.post("/api/chat")
 async def chat(payload: ChatPayload):
-    service = _get_service(payload.engine)
+    service = VLAService
     topology = node_data.get(payload.node_name)
     if not topology:
         if node_data:
@@ -223,4 +220,9 @@ async def get_node_detail(node_id: str):
     if node_id not in node_data:
         raise HTTPException(status_code=404, detail="Node not found")
     return node_data[node_id]
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", os.environ.get("BACKEND_PORT", 8000)))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
 
