@@ -1,133 +1,289 @@
 .container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 4rem 2rem;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  padding: 3rem 1.5rem;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   color: #ededed;
+}
+
+.topBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 3rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: ui-monospace, monospace;
+  font-size: 0.875rem;
+  color: #38bdf8;
+  text-decoration: none;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  transition: all 0.2s ease;
+}
+
+.backLink:hover {
+  background: rgba(56, 189, 248, 0.16);
+  border-color: #38bdf8;
+  transform: translateX(-2px);
+}
+
+.badgeGroup {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.awardBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-family: ui-monospace, monospace;
+  font-weight: 600;
+  padding: 0.4rem 0.8rem;
+  border-radius: 9999px;
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.modelBadge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.75rem;
+  font-family: ui-monospace, monospace;
+  padding: 0.4rem 0.8rem;
+  border-radius: 9999px;
+  background: rgba(0, 255, 157, 0.1);
+  color: #00ff9d;
+  border: 1px solid rgba(0, 255, 157, 0.3);
 }
 
 .hero {
   text-align: center;
-  margin-bottom: 6rem;
-  animation: fadeIn 1s ease-out forwards;
+  margin-bottom: 4.5rem;
+  animation: fadeIn 0.8s ease-out forwards;
 }
 
 .title {
-  font-size: 4rem;
+  font-size: 3.5rem;
   font-weight: 800;
-  letter-spacing: -0.05em;
-  margin-bottom: 1rem;
+  letter-spacing: -0.04em;
+  margin-bottom: 1.25rem;
   background: linear-gradient(135deg, #ffffff 0%, #a1a1aa 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .subtitle {
-  font-size: 1.5rem;
-  color: #a1a1aa;
-  max-width: 600px;
+  font-size: 1.25rem;
+  color: #94a3b8;
+  max-width: 760px;
   margin: 0 auto;
   line-height: 1.6;
 }
 
 .section {
-  margin-bottom: 6rem;
+  margin-bottom: 4.5rem;
   opacity: 0;
-  animation: slideUp 1s ease-out forwards;
-  animation-delay: 0.3s;
+  animation: slideUp 0.8s ease-out forwards;
 }
 
 .sectionHeader {
   text-align: center;
-  margin-bottom: 3rem;
+  margin-bottom: 2rem;
 }
 
 .sectionTitle {
-  font-size: 2.5rem;
+  font-size: 2rem;
   font-weight: 700;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
 }
 
 .sectionDescription {
-  font-size: 1.125rem;
-  color: #a1a1aa;
+  font-size: 1rem;
+  color: #94a3b8;
+  max-width: 600px;
+  margin: 0 auto;
 }
 
 .card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 24px;
-  padding: 2rem;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  overflow: hidden;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 1.75rem;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   position: relative;
-  transition: transform 0.3s ease, border-color 0.3s ease;
+  transition: transform 0.2s ease, border-color 0.2s ease;
 }
 
 .card:hover {
-  transform: translateY(-5px);
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(0, 255, 157, 0.25);
 }
 
-.placeholderImage {
+/* Grid split layout */
+.splitGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .splitGrid {
+    grid-template-columns: 1fr;
+  }
+  .title {
+    font-size: 2.5rem;
+  }
+}
+
+/* Floor plan visualizer */
+.mapViewer {
+  position: relative;
   width: 100%;
-  height: 400px;
-  background: linear-gradient(45deg, #18181b 0%, #27272a 100%);
+  aspect-ratio: 16 / 9;
+  background: #030712;
   border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.svgOverlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.bboxRect {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  fill: rgba(0, 255, 157, 0.08);
+  stroke: #00ff9d;
+  stroke-width: 1.5;
+  stroke-dasharray: 4, 4;
+}
+
+.bboxRect:hover, .bboxRectActive {
+  fill: rgba(0, 255, 157, 0.25);
+  stroke: #38bdf8;
+  stroke-dasharray: none;
+  stroke-width: 2.5;
+}
+
+.inspectorBox {
+  background: #020617;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 1.25rem;
+  font-family: ui-monospace, monospace;
+  font-size: 0.8125rem;
+}
+
+.jsonPreview {
+  background: #0b1120;
+  padding: 1rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  color: #38bdf8;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  margin-top: 0.75rem;
+  max-height: 220px;
+}
+
+/* Topology node graph */
+.graphCanvas {
+  width: 100%;
+  height: 320px;
+  background: #020617;
+  border-radius: 12px;
+}
+
+/* Chat playback simulator */
+.playbackControls {
   display: flex;
   align-items: center;
-  justify-content: center;
-  color: #71717a;
-  font-size: 1.2rem;
-  position: relative;
-  overflow: hidden;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.placeholderImage::after {
-  content: '';
-  position: absolute;
-  top: 0; left: -100%;
-  width: 50%; height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
-  animation: shimmer 3s infinite;
+.btnGroup {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn {
+  background: #1e293b;
+  color: #f8fafc;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.4rem 0.9rem;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  font-family: ui-monospace, monospace;
+  transition: all 0.2s ease;
+}
+
+.btn:hover {
+  background: #334155;
+  border-color: #38bdf8;
+}
+
+.btnActive {
+  background: #0284c7;
+  border-color: #38bdf8;
 }
 
 .chatContainer {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
-  max-width: 800px;
-  margin: 0 auto;
+  gap: 1rem;
+  min-height: 280px;
 }
 
 .chatMessage {
-  padding: 1rem 1.5rem;
-  border-radius: 16px;
-  max-width: 80%;
+  padding: 0.875rem 1.25rem;
+  border-radius: 14px;
+  max-width: 85%;
   line-height: 1.5;
-  font-size: 1.05rem;
+  font-size: 0.9375rem;
+  animation: fadeIn 0.3s ease-out;
 }
 
 .chatUser {
   align-self: flex-end;
-  background: #2563eb;
+  background: #0284c7;
   color: #ffffff;
-  border-bottom-right-radius: 4px;
+  border-bottom-right-radius: 3px;
 }
 
 .chatAgent {
   align-self: flex-start;
-  background: #27272a;
-  color: #ededed;
-  border-bottom-left-radius: 4px;
-  border: 1px solid rgba(255,255,255,0.05);
+  background: #1e293b;
+  color: #f1f5f9;
+  border-bottom-left-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .chatAgent .bold {
   font-weight: 600;
-  color: #60a5fa;
+  color: #00ff9d;
 }
 
 @keyframes fadeIn {
@@ -136,10 +292,6 @@
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(20px); }
+  from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes shimmer {
-  to { left: 200%; }
 }

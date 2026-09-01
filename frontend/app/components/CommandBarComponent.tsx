@@ -1,13 +1,20 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Terminal, Send, MessageSquare, Loader2 } from "lucide-react";
+import { Terminal, Send, MessageSquare, Loader2, Sparkles, ChevronRight, Activity } from "lucide-react";
 import { api, SpatialNode } from "../lib/api";
 
 interface CommandBarProps {
     topology: SpatialNode | null;
     systemLogs: string[];
 }
+
+const QUICK_PROMPTS = [
+    "Where is the elevator?",
+    "List all dynamic objects and obstacles",
+    "Describe the pathway to the Golden Door",
+    "What are the room dimensions and geometry?",
+];
 
 export default function CommandBarComponent({ topology, systemLogs }: CommandBarProps) {
     const [chatHistory, setChatHistory] = useState<{ role: 'user' | 'model', text: string }[]>([]);
@@ -29,133 +36,166 @@ export default function CommandBarComponent({ topology, systemLogs }: CommandBar
         }
     }, [chatHistory, isChatting]);
 
-    const handleChatSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!chatInput.trim() || !topology || isChatting) return;
+    const handleChatSubmit = async (queryToSubmit?: string) => {
+        const text = (queryToSubmit || chatInput).trim();
+        if (!text || !topology || isChatting) return;
 
-        const userMsg = chatInput.trim();
         setChatInput('');
-        const newHistory = [...chatHistory, { role: 'user' as const, text: userMsg }];
+        const newHistory = [...chatHistory, { role: 'user' as const, text }];
         setChatHistory(newHistory);
         setIsChatting(true);
 
         try {
-            const data = await api.chat(userMsg, topology.node_name, newHistory, "gemini");
-            setChatHistory(prev => [...prev, { role: 'model', text: data.response || "No response." }]);
+            const data = await api.chat(text, topology.node_name, newHistory, "gemini");
+            setChatHistory(prev => [...prev, { role: 'model', text: data.response || "No response received." }]);
         } catch (err) {
             console.error("Chat error:", err);
-            setChatHistory(prev => [...prev, { role: 'model', text: "System Error: VLA offline." }]);
+            setChatHistory(prev => [...prev, { role: 'model', text: "Error: Could not process spatial reasoning query." }]);
         } finally {
             setIsChatting(false);
         }
     };
 
     return (
-        <div className="flex flex-col h-full rounded-xl overflow-hidden min-h-[300px] max-h-[400px]"
-            style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', backdropFilter: 'blur(16px)' }}>
-            <div className="p-3 flex items-center justify-between"
-                style={{ borderBottom: '1px solid var(--border)' }}>
+        <div className="flex flex-col h-full rounded-2xl overflow-hidden min-h-[340px] max-h-[460px] bg-slate-950/80 border border-slate-800">
+            {/* Header Control Bar */}
+            <div className="px-4 py-2.5 flex items-center justify-between border-b border-slate-800 bg-slate-900/60">
                 <div className="flex items-center gap-2">
-                    <MessageSquare className="w-4 h-4" style={{ color: 'var(--accent)' }} />
-                    <h3 className="font-mono font-bold uppercase" style={{ color: 'var(--text-primary)' }}>Spatial Query Interface</h3>
+                    <MessageSquare className="w-4 h-4 text-emerald-400" />
+                    <h3 className="font-mono font-bold uppercase text-xs text-slate-100 tracking-wider">
+                        Spatial Cognitive Chat &amp; Kernel Terminal
+                    </h3>
                 </div>
 
                 <div className="flex items-center gap-2">
+                    {/* Toggle ROS2 Telemetry / Chat Terminal */}
                     <button
                         onClick={() => setShowTerminal(!showTerminal)}
-                        className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono font-bold transition-all"
-                        style={{
-                            background: showTerminal ? 'var(--accent)' : 'rgba(255,255,255,0.05)',
-                            color: showTerminal ? '#000' : 'var(--text-muted)',
-                            border: `1px solid ${showTerminal ? 'var(--accent)' : 'var(--border)'}`
-                        }}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-mono font-bold transition-all border ${
+                            showTerminal
+                                ? 'bg-emerald-400 text-slate-950 border-emerald-400 shadow-[0_0_10px_rgba(0,255,157,0.3)]'
+                                : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-slate-200'
+                        }`}
                     >
                         <Terminal className="w-3 h-3" />
-                        TERMINAL {showTerminal ? 'ON' : 'OFF'}
+                        {showTerminal ? 'TERMINAL ON' : 'TERMINAL LOGS'}
                     </button>
 
                     {!topology ? (
-                        <div className="font-mono px-2 py-1 rounded"
-                            style={{ fontSize: '10px', color: '#ef4444', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
-                            AWAITING TOPOLOGY CONTEXT
+                        <div className="font-mono text-[9px] px-2 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20">
+                            NO SPATIAL CONTEXT
                         </div>
                     ) : (
-                        <div className="font-mono px-2 py-1 rounded"
-                            style={{ fontSize: '10px', color: 'var(--accent)', background: 'var(--accent-dim)', border: '1px solid var(--border)' }}>
-                            CONTEXT: {topology.node_name}
+                        <div className="font-mono text-[9px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot" />
+                            <span>{topology.node_name}</span>
                         </div>
                     )}
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4"
-                style={{ background: 'var(--bg-primary)' }}>
-                {chatHistory.length === 0 && (
-                    <div className="font-mono text-center my-auto flex flex-col items-center gap-2" style={{ color: 'var(--text-muted)' }}>
-                        <Terminal className="w-8 h-8 opacity-20" />
-                        <p>Ask questions about the extracted environment...</p>
-                        <p style={{ fontSize: '12px' }}>E.g., &quot;Where is the microwave?&quot;</p>
-                    </div>
-                )}
-                {chatHistory.map((msg, i) => (
-                    <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className="max-w-[85%] p-3 rounded-lg font-mono leading-relaxed"
-                            style={msg.role === 'user'
-                                ? { background: 'var(--accent-dim)', color: 'var(--accent)', border: '1px solid var(--border-strong)' }
-                                : { background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }
-                            }>
-                            {msg.text}
-                        </div>
-                    </div>
-                ))}
-                {isChatting && (
-                    <div className="flex justify-start">
-                        <div className="p-3 rounded-lg flex items-center gap-2"
-                            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-                            <Loader2 className="w-3 h-3 animate-spin" style={{ color: 'var(--text-muted)' }} />
-                            <span className="font-mono" style={{ color: 'var(--text-muted)' }}>Querying VLA...</span>
-                        </div>
-                    </div>
-                )}
-                <div ref={chatEndRef} />
-            </div>
-
-            {/* System Terminal Overlay */}
-            {showTerminal && (
-                <div className="h-32 overflow-y-auto p-3 font-mono text-[10px] space-y-1 animate-in slide-in-from-bottom"
-                    style={{ background: 'rgba(0,0,0,0.8)', borderTop: '1px solid var(--border)', color: '#00FF9D' }}>
-                    {systemLogs.length === 0 ? (
-                        <div className="opacity-50 italic">Init SPATIAL_OS System Kernel...</div>
-                    ) : (
-                        systemLogs.map((log, i) => (
-                            <div key={i} className="flex gap-2">
-                                <span className="opacity-50">[{new Date().toLocaleTimeString()}]</span>
-                                <span>{log}</span>
-                            </div>
-                        ))
-                    )}
-                    <div ref={terminalEndRef} />
+            {/* Quick Prompt Pills (when topology is loaded) */}
+            {topology && !showTerminal && (
+                <div className="px-3 py-1.5 bg-slate-900/40 border-b border-slate-800/80 flex items-center gap-1.5 overflow-x-auto text-[10px] font-mono">
+                    <span className="text-slate-500 flex items-center gap-1 flex-shrink-0">
+                        <Sparkles className="w-3 h-3 text-sky-400" /> Suggestions:
+                    </span>
+                    {QUICK_PROMPTS.map((prompt, i) => (
+                        <button
+                            key={i}
+                            onClick={() => handleChatSubmit(prompt)}
+                            disabled={isChatting}
+                            className="flex-shrink-0 px-2.5 py-0.5 rounded-full bg-slate-800/60 hover:bg-slate-700 text-slate-300 hover:text-emerald-300 border border-slate-700/60 hover:border-emerald-500/40 transition-all cursor-pointer"
+                        >
+                            {prompt}
+                        </button>
+                    ))}
                 </div>
             )}
 
-            <form onSubmit={handleChatSubmit} className="p-3 flex gap-2"
-                style={{ borderTop: '1px solid var(--border)' }}>
+            {/* Main Log / Dialogue Viewport */}
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 font-mono text-xs bg-slate-950/60">
+                {showTerminal ? (
+                    /* ROS2 Kernel Stream */
+                    <div className="flex flex-col gap-1 text-[11px] text-slate-300">
+                        <div className="text-emerald-400 pb-1 border-b border-slate-800 text-[10px]">
+                            -- ROS2 Hardware Dispatch &amp; Nav2 Action Stream --
+                        </div>
+                        {systemLogs.length === 0 ? (
+                            <div className="text-slate-600 my-4 text-center">No hardware action dispatches recorded yet.</div>
+                        ) : (
+                            systemLogs.map((log, idx) => (
+                                <div key={idx} className="flex items-start gap-2">
+                                    <span className="text-slate-600">[{new Date().toLocaleTimeString()}]</span>
+                                    <span className={log.includes("ERROR") ? "text-red-400" : log.includes("Nav2") ? "text-sky-400" : "text-emerald-400"}>
+                                        {log}
+                                    </span>
+                                </div>
+                            ))
+                        )}
+                        <div ref={terminalEndRef} />
+                    </div>
+                ) : (
+                    /* Natural Language Spatial Reasoning Chat */
+                    <>
+                        {chatHistory.length === 0 && (
+                            <div className="my-auto text-center flex flex-col items-center gap-2 text-slate-500">
+                                <Terminal className="w-8 h-8 opacity-20 text-emerald-400" />
+                                <p className="text-slate-400">Ask spatial questions about room geometry, anchors, or navigation.</p>
+                                <span className="text-[10px] text-slate-600">Grounded in Gemini 3.1 Pro Relational Property Graph</span>
+                            </div>
+                        )}
+
+                        {chatHistory.map((msg, i) => (
+                            <div
+                                key={i}
+                                className={`flex flex-col max-w-[85%] rounded-xl p-3 ${
+                                    msg.role === 'user'
+                                        ? 'self-end bg-sky-600/20 text-sky-100 border border-sky-500/30'
+                                        : 'self-start bg-slate-900 text-slate-200 border border-slate-700/80 shadow-[0_2px_12px_rgba(0,0,0,0.3)]'
+                                }`}
+                            >
+                                <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider mb-1">
+                                    {msg.role === 'user' ? (
+                                        <span className="text-sky-400">Operator</span>
+                                    ) : (
+                                        <span className="text-emerald-400 flex items-center gap-1">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                            Gemini 3.1 Pro VLA
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="leading-relaxed whitespace-pre-wrap">{msg.text}</div>
+                            </div>
+                        ))}
+
+                        {isChatting && (
+                            <div className="self-start bg-slate-900 rounded-xl p-3 border border-slate-800 flex items-center gap-2 text-slate-400">
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                                <span className="text-[11px]">Reasoning across spatial property graph...</span>
+                            </div>
+                        )}
+                        <div ref={chatEndRef} />
+                    </>
+                )}
+            </div>
+
+            {/* Prompt Input Form */}
+            <form onSubmit={(e) => { e.preventDefault(); handleChatSubmit(); }} className="p-2.5 border-t border-slate-800 bg-slate-900/70 flex gap-2">
                 <input
                     type="text"
                     value={chatInput}
-                    onChange={e => setChatInput(e.target.value)}
-                    placeholder={topology ? "Query the environment..." : "Process a node first..."}
-                    className="flex-1 rounded px-3 py-2 font-mono focus:outline-none transition-colors"
-                    style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-                    disabled={isChatting || !topology}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    disabled={!topology || isChatting}
+                    placeholder={topology ? "Ask spatial query (e.g. 'Where is the elevator?')..." : "Upload room images first..."}
+                    className="flex-1 bg-slate-950/80 border border-slate-700/80 rounded-xl px-3.5 py-2 text-xs font-mono text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition-all disabled:opacity-50"
                 />
                 <button
                     type="submit"
-                    disabled={isChatting || !chatInput.trim() || !topology}
-                    className="px-4 py-2 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-                    style={{ background: 'var(--accent)', color: '#000' }}
+                    disabled={!topology || !chatInput.trim() || isChatting}
+                    className="cyber-btn flex items-center justify-center px-4 py-2 disabled:opacity-30 disabled:pointer-events-none"
                 >
-                    <Send className="w-4 h-4" />
+                    <Send className="w-3.5 h-3.5" />
                 </button>
             </form>
         </div>

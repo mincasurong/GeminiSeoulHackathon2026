@@ -1,106 +1,100 @@
-# GeminiSpace (SPATIAL_OS) — Agent Rules
+# 🌌 GeminiSpace (SPATIAL_OS) — Agent Guidelines & Repository Directives
 
-## Project Identity
+This document defines the core architecture, operational constraints, coding standards, and deployment workflows for AI agents operating in the **GeminiSpace (SPATIAL_OS)** repository.
 
-This repository is **SPATIAL_OS (GeminiSpace)** — a Vision-Language-Action (VLA) system
-that converts 8 directional room photographs into interactive indoor maps powered by
-Google Gemini cloud models. It was originally built for the **Google Seoul Hackathon 2026**.
+---
 
-## Core Architecture
+## 1. Repository Characteristics
 
-- **Frontend**: Next.js 16 (App Router) + React 19 + TypeScript 5 + Tailwind CSS v4
-- **Backend**: FastAPI (Python 3.10+) + Google GenAI SDK (`google-genai`)
-- **Visualization**: Three.js / React Three Fiber (3D), D3.js (Force Graph), ReactFlow (Multi-node Graph)
-- **Hardware Bridge**: ROS2 Nav2 FollowWaypoints REST dispatch (simulated)
-- **Deployment**: Google Cloud Run (two separate services: backend + frontend)
+- **Stack**: 
+  - **Frontend**: Next.js 16 (App Router) + React 19 + TypeScript 5 + Tailwind CSS v4 + Framer Motion.
+  - **Backend**: FastAPI (Python 3.10+) + Uvicorn + Google GenAI SDK (`google-genai`) + NetworkX.
+  - **Visualizers**: Three.js & React Three Fiber (`@react-three/fiber`, `@react-three/drei`), D3.js v7, ReactFlow v11.
+  - **Hardware Bridge**: ROS2 Nav2 REST Action Dispatcher.
+- **Port Allocations**:
+  - Frontend: `http://localhost:3000` (Scholar intro: `http://localhost:3000/scholar`)
+  - Backend: `http://localhost:8000` (API Docs: `http://localhost:8000/docs`)
+  - Cloud Run Deployment: Injects dynamic `PORT=8080`.
+- **Environment Keys**:
+  - `GOOGLE_API_KEY`: Required in `backend/.env` for Gemini API calls.
+  - `NEXT_PUBLIC_API_BASE_URL`: Frontend environment variable pointing to the backend API base.
 
-## Coding Conventions
+---
 
-### Python (Backend)
-- Use **Pydantic** for all request/response schemas.
-- All Gemini model identifiers must be defined in `backend/model_config.py` — never hardcode model strings in service files.
-- JSON responses from Gemini MUST be parsed through `_clean_and_parse_json()` to strip markdown backticks.
-- Always provide directional fallback bounding boxes via `DIRECTION_PRESETS` when localization fails.
-- Use `python-dotenv` for environment variable loading. API key env var: `GOOGLE_API_KEY`.
+## 2. The 3-Step VLA Pipeline Directives
 
-### TypeScript (Frontend)
-- Use the **App Router** pattern (`app/` directory). No Pages Router.
-- All API calls go through `app/lib/api.ts` — never call `fetch()` directly from components.
-- State is managed in `page.tsx` and passed via props (no global state library).
-- Theme is controlled via `data-theme` attribute on `document.documentElement`.
-- Use **CSS Variables** defined in `globals.css` for all color references.
-- Use `lucide-react` for icons and `framer-motion` for animations.
+All modifications to spatial processing must preserve the **Text-Bridge Architecture**:
 
-### Styling
-- Dark mode is the default theme. Light mode is a secondary option.
-- The design aesthetic is **Cyberpunk / SLAM Operator Console** — dark backgrounds, neon mint (`#00FF9D`) accent, `JetBrains Mono`-style monospace typography, glassmorphism cards, grid backgrounds, scan-line animations.
-- Use Tailwind utility classes for layout; CSS Variables for theme colors.
+| Step | Operation | Function | Active Model | Input $\to$ Output |
+| :--- | :--- | :--- | :--- | :--- |
+| **Step 1** | **Topology Extraction** | `VLAService.extract_topology` | `MODEL_TOPOLOGY` (`gemini-3.7-flash`) | 8 directional photos $\to$ Relational Spatial Property Graph |
+| **Step 2a** | **Layout Description** | `VLAService.extract_layout_description` | `MODEL_LAYOUT` (`gemini-3.7-flash`) | 8 photos + topology $\to$ CoT ASCII grid + architectural text |
+| **Step 2b** | **2D Floor Plan Synthesis** | `VLAService.generate_birds_eye_view` | `MODEL_IMAGE` (`gemini-3.1-flash-image`) | **Text only** $\to$ 16:9 photorealistic 2D blueprint |
+| **Step 3** | **Spatial Localization** | `VLAService.locate_objects_in_map` | `MODEL_LOCALIZATION` (`gemini-3.7-flash`) | 2D map + object list $\to$ bounding boxes (%) |
+| **Chat** | **Spatial Reasoning** | `VLAService.chat_with_environment` | `MODEL_CHAT` (`gemini-3.7-flash`) | Query + property graph + source photos $\to$ response |
+| **Planner** | **Trajectory Planning** | `VLAService.plan_trajectory` | `MODEL_PLANNER` (`gemini-3.7-flash`) | Goal query + graph nodes $\to$ path sequence |
 
-## The 3-Step VLA Pipeline
+> ⚠️ **CRITICAL INVARIANT**: Never pass raw photographs to `MODEL_IMAGE`. The Text-Bridge (Step 2a $\to$ Step 2b) is mandatory to eliminate 3D perspective distortion in generated floor plans.
 
-This is the core intellectual property. When modifying or extending the pipeline:
+---
 
-1. **Step 1 — Topology Extraction** (`extract_topology`): 8 images → structured JSON (anchors, objects, edges).
-2. **Step 2 — Text-Bridge Map Generation** (`generate_birds_eye_view`):
-   - 2a: Images + topology → textual architectural description (Flash model).
-   - 2b: Text-only → 2D orthographic floor plan image (Image generation model).
-3. **Step 3 — Spatial Localization** (`locate_objects_in_map`): Floor plan + object list → bounding boxes (%).
+## 3. Coding Conventions
 
-> **CRITICAL**: Step 2 uses a "Text-Bridge" — the image model receives ONLY text, never raw photos.
-> This prevents 3D perspective hallucinations in the 2D output.
+### Backend (Python)
+- **Model Isolation**: Always use model constants imported from `backend/model_config.py`. Never hardcode model strings in service logic.
+- **Defensive JSON Parsing**: Always route LLM outputs through `_clean_and_parse_json()` to handle markdown formatting and strip code fences.
+- **Fail-Safe Presets**: Always apply `DIRECTION_PRESETS` for any objects omitted during visual localization.
+- **Windows Socket Handling**: Preserve the custom `set_exception_handler` in `main.py` to suppress harmless `ConnectionResetError (WinError 10054)` on browser reloads.
 
-## Directory Structure
+### Frontend (TypeScript / Next.js)
+- **Centralized API Client**: All HTTP requests must go through `frontend/app/lib/api.ts`. Never use raw `fetch()` in components.
+- **Prop-Driven State**: Root dashboard state lives in `app/page.tsx` and passes downward via props.
+- **Design Tokens**: High-tech SLAM Operator Console aesthetic. Use CSS variables defined in `app/globals.css`:
+  - Backgrounds: `var(--bg-primary)` (`#030712`), `var(--bg-secondary)` (`#0f172a`)
+  - Accents: `var(--accent)` (`#00FF9D` neon mint), `var(--cyan)` (`#38BDF8`)
+  - Typography: Monospace and clean sans-serif with font scale controls (`S`, `M`, `L`).
 
-```
-GeminiSeoulHackathon2026/
-├── .agents/                    # Agent customizations (this folder)
-├── backend/
-│   ├── main.py                 # FastAPI endpoints
-│   ├── vla_service.py          # 3-step Gemini VLA pipeline
-│   ├── model_config.py         # Model name constants
-│   ├── models.py               # Pydantic schemas
-│   └── requirements.txt
-├── frontend/
-│   ├── app/
-│   │   ├── page.tsx            # Main dashboard (MAP/GRAPH/TWIN tabs)
-│   │   ├── layout.tsx          # Root layout (fonts, globals)
-│   │   ├── globals.css         # Theme variables & effects
-│   │   ├── scholar/            # Standalone introduction/showcase page
-│   │   ├── components/
-│   │   │   ├── NodeCaptureComponent.tsx    # 8-photo radial upload
-│   │   │   ├── InteriorMapComponent.tsx    # 2D map + bounding boxes + ROS2
-│   │   │   ├── SemanticGraph.tsx           # D3.js force graph
-│   │   │   ├── DigitalTwin.tsx            # Three.js 3D voxel twin
-│   │   │   ├── CommandBarComponent.tsx    # Chat + system terminal
-│   │   │   ├── GraphVisualizerComponent.tsx # ReactFlow multi-room graph
-│   │   │   └── RobotSettingsModal.tsx     # ROS2 endpoint config
-│   │   └── lib/api.ts          # Centralized API client
-│   └── package.json
-├── ARCHITECTURE.md
-├── README.md
-└── manual.md
-```
+---
 
-## Environment Variables
+## 4. Google Cloud Run Deployment Workflow
 
-| Variable | Location | Required | Description |
-|---|---|---|---|
-| `GOOGLE_API_KEY` | `backend/.env` | Yes | Google AI Studio Gemini API key |
-| `NEXT_PUBLIC_API_BASE_URL` | Frontend env / Cloud Run | For deploy | Backend API URL (default: `http://localhost:8000/api`) |
+When deploying the full stack to Google Cloud Run:
 
-## Running Locally
+1. **Verify Builds Locally**:
+   - Backend: Ensure dependencies in `requirements.txt` are clean.
+   - Frontend: Run `npm run build` inside `frontend/` to confirm zero TypeScript/CSS errors.
+2. **Deploy Backend Service**:
+   ```bash
+   cd backend
+   gcloud run deploy spatial-ai-backend \
+     --source . \
+     --region us-central1 \
+     --allow-unauthenticated \
+     --set-env-vars GOOGLE_API_KEY="YOUR_KEY"
+   ```
+   *Record the deployed backend URL (e.g. `https://spatial-ai-backend-xxxxx-uc.a.run.app`).*
 
-1. Backend: `cd backend && uvicorn main:app --host 127.0.0.1 --port 8000`
-2. Frontend: `cd frontend && npm run dev` → `http://localhost:3000`
-3. API Docs: `http://localhost:8000/docs`
+3. **Deploy Frontend Service**:
+   ```bash
+   cd ../frontend
+   gcloud run deploy spatial-ai-frontend \
+     --source . \
+     --region us-central1 \
+     --allow-unauthenticated \
+     --set-env-vars NEXT_PUBLIC_API_BASE_URL="https://spatial-ai-backend-xxxxx-uc.a.run.app/api"
+   ```
 
-## Gemini Models Used
+4. **Artifact Registry Permission Fix**:
+   If deployment fails with an Artifact Registry upload error, grant `roles/artifactregistry.writer` to the Cloud Build and Compute Engine service accounts.
 
-| Pipeline Step | Config Constant | Current Model |
-|---|---|---|
-| Topology Extraction | `MODEL_TOPOLOGY` | `gemini-3.7-flash` |
-| Layout Description | `MODEL_LAYOUT` | `gemini-3.7-flash` |
-| Floor Plan Image | `MODEL_IMAGE` | `gemini-3.1-flash-image` |
-| Object Localization | `MODEL_LOCALIZATION` | `gemini-3.7-flash` |
-| Spatial Chat | `MODEL_CHAT` | `gemini-3.7-flash` |
-| Trajectory Planner | `MODEL_PLANNER` | `gemini-3.7-flash` |
+---
+
+## 5. Specialized Agent Skills
+
+The `.agents/skills/` directory provides on-demand workflows:
+
+- **[`spatial-os-system-design`](file:///d:/git/GeminiSeoulHackathon2026/.agents/skills/spatial-os-system-design/SKILL.md)**: 4-layer impact analysis, architectural expansion guidelines, and schema design.
+- **[`vla-pipeline-debugging`](file:///d:/git/GeminiSeoulHackathon2026/.agents/skills/vla-pipeline-debugging/SKILL.md)**: Diagnosing and resolving JSON parsing failures, missing bounding boxes, coordinate mismatches, and rate limits.
+- **[`frontend-visualization-guide`](file:///d:/git/GeminiSeoulHackathon2026/.agents/skills/frontend-visualization-guide/SKILL.md)**: Deep dive into Three.js voxel instancing, D3 force graph tuning, and ReactFlow integration.
+- **[`scholar-showcase-page`](file:///d:/git/GeminiSeoulHackathon2026/.agents/skills/scholar-showcase-page/SKILL.md)**: Managing the standalone `/scholar` showcase page and integrating static assets.
+- **[`gcp-cloud-run-deploy`](file:///d:/git/GeminiSeoulHackathon2026/.agents/skills/gcp-cloud-run-deploy/SKILL.md)**: Containerization, IAM setup, and deployment to Google Cloud Run.

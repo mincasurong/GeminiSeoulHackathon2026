@@ -1,113 +1,113 @@
 ---
 name: vla-pipeline-debugging
 description: >-
-  Use when debugging or troubleshooting the 3-step VLA pipeline (Topology
-  Extraction, Bird's-Eye Map Generation, Spatial Localization). Covers common
-  failure modes like malformed JSON from Gemini, missing bounding boxes,
-  perspective hallucinations in generated maps, image encoding issues, and
-  fallback logic.
+  Systematic debugging and troubleshooting runbook for the SPATIAL_OS 3-step VLA pipeline.
+  Covers Gemini JSON recovery, directional fallback presets, perspective hallucination
+  diagnostics, coordinate bounds enforcement, and Windows asyncio socket handling.
 ---
 
-# VLA Pipeline Debugging Skill
+# 🔍 VLA Pipeline Debugging & Troubleshooting Runbook
 
-## Overview
+This skill provides step-by-step diagnostic procedures, error signatures, and exact code remedies for the **GeminiSpace (SPATIAL_OS)** Vision-Language-Action pipeline.
 
-This skill helps diagnose and fix issues in the SPATIAL_OS 3-step VLA pipeline
-when Gemini model outputs are incorrect, incomplete, or malformed.
+---
 
-## Common Failure Modes & Fixes
+## 1. Quick Diagnostic Flowchart
 
-### 1. Malformed JSON from Gemini
-
-**Symptom**: `json.JSONDecodeError` after a Gemini call.
-
-**Root Cause**: Gemini wraps JSON in markdown fences (` ```json ... ``` `).
-
-**Fix**: The `_clean_and_parse_json()` helper in `vla_service.py` handles this.
-If you see this error, ensure all new Gemini calls route through this parser:
-
-```python
-def _clean_and_parse_json(raw: str):
-    # Strip markdown code fences
-    cleaned = re.sub(r'```(?:json)?\s*', '', raw).strip()
-    cleaned = re.sub(r'```\s*$', '', cleaned).strip()
-    # Fallback regex extraction
-    match = re.search(r'(\[.*\]|\{.*\})', cleaned, re.DOTALL)
-    if match:
-        return json.loads(match.group(1))
-    return json.loads(cleaned)
+```mermaid
+graph TD
+    A["Issue Occurred in Pipeline"] --> B{"Which Step Failed?"}
+    B -->|Step 1: Upload / Topology| C["1. JSON Parsing / Schema Error"]
+    B -->|Step 2: 2D Floor Plan| D["2. Perspective Hallucination / Image Gen Failure"]
+    B -->|Step 3: Localization| E["3. Missing Bounding Boxes / Coord Mismatch"]
+    B -->|Chat / Trajectory| F["4. Context Loss / Rate Limit"]
 ```
 
-### 2. Missing Bounding Boxes (Localization Gaps)
+---
 
-**Symptom**: Some objects appear in the topology but have no bounding box on the map.
+## 2. Failure Modes & Root-Cause Remedies
 
-**Root Cause**: Gemini failed to locate the object on the 2D floor plan.
+### Issue 1: Gemini JSON Decoding Failure (`json.JSONDecodeError`)
+*   **Symptom**: Step 1 or Step 3 fails with `Expecting value: line 1 column 1 (char 0)` or malformed markdown output.
+*   **Root Cause**: Gemini occasionally encapsulates JSON output in markdown formatting (` ```json ... ``` `) or precedes output with conversational preamble.
+*   **Remedy**: Always use the robust regex extractor defined in `vla_service.py`:
+    ```python
+    def _clean_and_parse_json(raw: str):
+        # Strip markdown fences
+        cleaned = re.sub(r'```(?:json)?\s*', '', raw).strip()
+        cleaned = re.sub(r'```\s*$', '', cleaned).strip()
+        
+        # Fallback regex search for outer JSON object or array
+        match = re.search(r'(\[.*\]|\{.*\})', cleaned, re.DOTALL)
+        if match:
+            return json.loads(match.group(1))
+        return json.loads(cleaned)
+    ```
 
-**Fix**: The `DIRECTION_PRESETS` fallback in `vla_service.py` automatically
-assigns default bounding boxes based on the object's `image_indices` (directional
-position). Verify this fallback is active:
+---
 
-```python
-DIRECTION_PRESETS = {
-    0: (5, 35, 25, 65),    # N  (top center)
-    1: (5, 65, 25, 95),    # NE (top right)
-    2: (35, 75, 65, 95),   # E  (right center)
-    3: (75, 65, 95, 95),   # SE (bottom right)
-    4: (75, 35, 95, 65),   # S  (bottom center)
-    5: (75, 5, 95, 35),    # SW (bottom left)
-    6: (35, 5, 65, 25),    # W  (left center)
-    7: (5, 5, 25, 35),     # NW (top left)
-}
-```
+### Issue 2: 3D Perspective Hallucinations in 2D Floor Plans
+*   **Symptom**: The generated bird's-eye map shows angled 3D walls, furniture heights, or perspective distortion instead of an orthographic top-down 2D floor plan.
+*   **Root Cause**: Visual photos were passed directly to `MODEL_IMAGE` (`gemini-3.1-flash-image`), violating the **Text-Bridge invariant**.
+*   **Remedy**: Ensure `generate_birds_eye_view` passes **ONLY the text layout description** generated in Step 2a (`extract_layout_description`) to the image generation model.
 
-### 3. 3D Perspective Artifacts in Floor Plan
+---
 
-**Symptom**: The generated bird's-eye map shows walls at an angle or has
-perspective distortion instead of true top-down orthographic view.
+### Issue 3: Missing Bounding Boxes on Generated Floor Plans
+*   **Symptom**: Certain objects/anchors exist in the topology JSON but have no bounding boxes displayed on the map overlay.
+*   **Root Cause**: Visual object detector (`gemini-3.7-flash`) missed the object in the synthesized 2D floor plan image.
+*   **Remedy**: Verify that the directional preset fallback is active in `vla_service.py`:
+    ```python
+    # Directional Fallback Map (Image Index 0:N -> 7:NW)
+    DIRECTION_PRESETS = {
+        0: (5, 35, 25, 65),    # North (Top Center)
+        1: (5, 65, 25, 95),    # North-East (Top Right)
+        2: (35, 75, 65, 95),   # East (Right Center)
+        3: (75, 65, 95, 95),   # South-East (Bottom Right)
+        4: (75, 35, 95, 65),   # South (Bottom Center)
+        5: (75, 5, 95, 35),    # South-West (Bottom Left)
+        6: (35, 5, 65, 25),    # West (Left Center)
+        7: (5, 5, 25, 35),     # North-West (Top Left)
+    }
+    ```
 
-**Root Cause**: Raw images were accidentally passed to the image generation model.
+---
 
-**Fix**: Verify the Text-Bridge is intact — Step 2b MUST receive **only text**
-(the layout description from Step 2a), never raw images. Check
-`generate_birds_eye_view()` in `vla_service.py`.
+### Issue 4: Visual Coordinate Bounds & Percentage Scaling
+*   **Symptom**: Bounding box SVG overlays overflow the map canvas or appear misplaced.
+*   **Root Cause**: Misunderstanding coordinate units. Coordinates are **0.0–100.0 percentages**, not 0.0–1.0 floats.
+*   **Remedy**: Clamp all coordinates within `[2.0, 98.0]` and enforce minimum dimensions:
+    ```python
+    ymin = max(2.0, min(90.0, float(raw_ymin)))
+    xmin = max(2.0, min(90.0, float(raw_xmin)))
+    ymax = max(ymin + 5.0, min(98.0, float(raw_ymax)))
+    xmax = max(xmin + 5.0, min(98.0, float(raw_xmax)))
+    ```
 
-### 4. Empty or Placeholder Map Image
+---
 
-**Symptom**: Map displays a generic placeholder or broken image.
+### Issue 5: Windows `WinError 10054` (ConnectionResetError)
+*   **Symptom**: Console throws unhandled `ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host` when users refresh the Next.js browser page.
+*   **Root Cause**: Windows asyncio proactor event loop raises exceptions when clients abort SSE/HTTP connections prematurely.
+*   **Remedy**: Register a custom event loop exception handler in `backend/main.py`:
+    ```python
+    if sys.platform == "win32":
+        def silence_winerror_10054(loop, context):
+            exception = context.get("exception")
+            if isinstance(exception, ConnectionResetError) or (
+                hasattr(exception, "winerror") and exception.winerror == 10054
+            ):
+                return
+            loop.default_exception_handler(context)
 
-**Root Cause**: Step 2 image generation failed silently.
+        asyncio.get_event_loop().set_exception_handler(silence_winerror_10054)
+    ```
 
-**Fix**: Check `vla_service.py` — the fallback substitutes a placeholder URL.
-Look at backend logs for the actual Gemini API error. Common causes:
-- Image generation quota exceeded
-- Model not available in region
-- Content safety filter triggered by room photos
+---
 
-### 5. Coordinate System Mismatch
+## 3. Systematic Verification Checklist
 
-**Symptom**: Bounding boxes appear in wrong positions on the floor plan.
-
-**Key Facts**:
-- Backend outputs bounding boxes as **0–100 percentages** (NOT 0–1 floats).
-- Frontend (`InteriorMapComponent`) uses these directly as CSS percentages.
-- ROS2 dispatch converts 1% = 0.1 meters.
-- Coordinate validation clamps to 2.0%–98.0% with minimum size enforcement.
-
-### 6. Chat Context Failures
-
-**Symptom**: Chat returns generic answers without spatial awareness.
-
-**Root Cause**: The node topology wasn't injected into the chat system context.
-
-**Fix**: Ensure `chat_with_environment()` receives the full topology dict, the
-map image, and up to 4 source photos as context alongside the user query.
-
-## Debugging Checklist
-
-1. Check backend console for Gemini API errors.
-2. Visit `http://localhost:8000/docs` → test endpoints directly via Swagger.
-3. Verify `GOOGLE_API_KEY` is valid and has quota.
-4. Check `model_config.py` — ensure model names haven't been deprecated.
-5. For frontend rendering issues, check browser DevTools Network tab for
-   the `/api/upload-node` response payload structure.
+1. **Verify Backend**: Test endpoint directly via Swagger UI at `http://localhost:8000/docs`.
+2. **Verify Quota**: Check Google AI Studio dashboard for rate limit depletion (HTTP 429).
+3. **Verify Graph Memory**: Check `GET /api/graph` to confirm nodes and edges are properly registered in NetworkX.
+4. **Verify Frontend Trajectory**: Inspect browser terminal logs to confirm ROS2 `Nav2_FollowWaypoints` serialization format.

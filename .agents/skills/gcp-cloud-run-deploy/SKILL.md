@@ -1,54 +1,120 @@
 ---
 name: gcp-cloud-run-deploy
 description: >-
-  Builds a local web application, containerizes it, and deploys it to Google Cloud Run from source. Handles common Artifact Registry permission issues during deployment.
+  Builds, containerizes, and deploys the SPATIAL_OS multi-service stack (FastAPI backend +
+  Next.js frontend) to Google Cloud Run from source. Handles environment configuration,
+  inter-service URL wiring, and Artifact Registry IAM troubleshooting.
 ---
 
-# Google Cloud Run Deployment Skill
+# 🚀 Google Cloud Run Dual-Service Deployment Skill
 
-## Overview
-This skill guides the agent in building a web application locally to ensure it is error-free, and then deploying it directly to Google Cloud Run using `gcloud run deploy --source .`. It also includes troubleshooting steps for common IAM permission errors related to Artifact Registry.
+This skill guides the end-to-end containerization and deployment of the **GeminiSpace (SPATIAL_OS)** multi-service stack to **Google Cloud Run**.
 
-## Dependencies
-None.
+---
 
-## Quick Start
-To use this skill, ask the agent: "Deploy this application to Cloud Run."
+## 1. Prerequisites & Pre-Flight Checks
 
-## Workflow
+Before initiating deployment:
 
-### 1. Build and Verify Locally
-- Run `npm run build` (or the equivalent build command for the project).
-- Fix any build or syntax errors before attempting to deploy. Cloud Build will fail if the local build fails.
+1. **Verify Local Builds**:
+   - **Frontend**: Run `npm run build` inside `frontend/` to ensure zero TypeScript, JSX, or Tailwind compilation errors.
+   - **Backend**: Ensure all dependencies are specified in `backend/requirements.txt`.
+2. **Verify Dockerfiles**:
+   - `backend/Dockerfile` and `backend/.dockerignore` must exist.
+   - `frontend/Dockerfile` and `frontend/.dockerignore` must exist.
+3. **Ensure Active GCP Project**:
+   ```bash
+   gcloud config get-value project
+   ```
 
-### 2. Check for Dockerfile (Optional)
-- Check if a `Dockerfile` exists in the repository. If it does not, Cloud Run will attempt to use Google Cloud Buildpacks automatically. Ensure the user is aware of this.
+---
 
-### 3. Deploy to Cloud Run
-- Run the deployment command:
-  ```bash
-  gcloud run deploy [SERVICE_NAME] --source . --region [REGION] --allow-unauthenticated
-  ```
-- If the user hasn't specified a service name or region, prompt them or infer from the project context.
+## 2. Step-by-Step Deployment Workflow
 
-### 4. Handle Artifact Registry Permissions (Troubleshooting)
-- If the deployment fails with a permissions error (e.g., "denied: Permission \"artifactregistry.repositories.uploadArtifacts\" denied on resource"), it is likely because the service accounts lack the `roles/artifactregistry.writer` role.
-- Run the following commands to fix it (replace `PROJECT_ID` and `PROJECT_NUMBER` accordingly):
-  ```bash
-  gcloud projects add-iam-policy-binding [PROJECT_ID] \
-    --member="serviceAccount:[PROJECT_NUMBER]@cloudbuild.gserviceaccount.com" \
-    --role="roles/artifactregistry.writer"
+Because the Next.js frontend requires the backend's live URL at build/runtime (`NEXT_PUBLIC_API_BASE_URL`), **always deploy the backend first**.
 
-  gcloud projects add-iam-policy-binding [PROJECT_ID] \
-    --member="serviceAccount:[PROJECT_NUMBER]-compute@developer.gserviceaccount.com" \
-    --role="roles/artifactregistry.writer"
-  ```
-- After granting permissions, retry the deployment.
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Dev as Developer / Agent
+    participant GCR as Google Cloud Run
+    participant BE as Backend Service
+    participant FE as Frontend Service
 
-### 5. Finalize
-- Output the deployed Cloud Run Service URL to the user.
-- Add a summary of the deployment steps and any fixes applied to a `README.md` or similar documentation file if requested by the user.
+    Dev->>GCR: 1. Deploy Backend (gcloud run deploy spatial-ai-backend)
+    GCR-->>Dev: Return Backend Live URL (https://backend-xxx.a.run.app)
+    Dev->>GCR: 2. Deploy Frontend with NEXT_PUBLIC_API_BASE_URL
+    GCR-->>Dev: Return Frontend Live URL (https://frontend-xxx.a.run.app)
+    Dev->>FE: 3. Health & End-to-End Verification
+```
 
-## Common Mistakes
-- **Deploying broken code**: Failing to run a local build before deploying, causing the remote build to fail and wasting time.
-- **Ignoring IAM errors**: Thinking the build failed due to code, when it was actually a lack of `artifactregistry.writer` permissions for the Cloud Build or Compute Engine service accounts.
+### Step 1: Deploy Backend Service
+
+```bash
+cd backend
+
+gcloud run deploy spatial-ai-backend \
+  --source . \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --set-env-vars GOOGLE_API_KEY="YOUR_GEMINI_API_KEY"
+```
+
+*From the output, capture the Service URL (e.g. `https://spatial-ai-backend-72491823-uc.a.run.app`).*
+
+### Step 2: Deploy Frontend Service
+
+Inject the backend's `/api` base URL into the frontend build environment:
+
+```bash
+cd ../frontend
+
+gcloud run deploy spatial-ai-frontend \
+  --source . \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --set-env-vars NEXT_PUBLIC_API_BASE_URL="https://[BACKEND_SERVICE_URL]/api"
+```
+
+---
+
+## 3. Custom Domain Mapping (Optional)
+
+If mapping custom domains (e.g. `spatial.example.com`):
+
+```bash
+gcloud beta run domain-mappings create \
+  --service spatial-ai-frontend \
+  --domain spatial.example.com \
+  --region us-central1
+```
+
+*Remind the user to add the DNS records (A/AAAA/CNAME) provided by Google Cloud Console.*
+
+---
+
+## 4. Troubleshooting & IAM Remediation
+
+### Artifact Registry Permission Error
+**Error**: `denied: Permission "artifactregistry.repositories.uploadArtifacts" denied on resource...`
+
+**Fix**: Grant Artifact Registry writer roles to Cloud Build and Compute Engine default service accounts:
+
+```bash
+PROJECT_ID=$(gcloud config get-value project)
+PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')
+
+# Grant to Cloud Build service account
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com" \
+  --role="roles/artifactregistry.writer"
+
+# Grant to Compute Engine default service account
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/artifactregistry.writer"
+```
+
+### Next.js Image Optimization / Environment Variable Issues
+- If API calls fail in the browser, verify that `NEXT_PUBLIC_API_BASE_URL` contains the full scheme and path (e.g. `https://spatial-ai-backend-xxx.a.run.app/api`).
+- Check browser DevTools Console and Network tab to ensure requests are reaching the backend.

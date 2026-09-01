@@ -2,11 +2,65 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8
 
 export type EngineType = "gemini";
 
+export interface SeamKeypoint {
+    keypoint_id: string;
+    adjacent_pair: number[];
+    bearing_degrees: number;
+    visual_feature: string;
+    estimated_distance_m?: number;
+}
+
+export interface LoopClosure {
+    pair: number[];
+    shared_landmarks: string[];
+    closure_verified: boolean;
+    notes?: string;
+}
+
+export interface SpatialRelation {
+    source: string;
+    relation: string;
+    target: string;
+    cardinal_direction?: string;
+    distance_estimate?: string;
+}
+
+export interface RoomGeometry {
+    shape?: string;
+    approx_dimensions?: string;
+    center_description?: string;
+    perimeter_keypoints_order?: string[];
+}
+
 export interface SpatialNode {
     node_name: string;
-    static_anchors: { anchor_id: string; type: string; description: string; image_indices: number[] }[];
-    dynamic_objects: { object_id: string; type: string; description: string; image_indices: number[] }[];
-    navigable_edges: { edge_id: string; description: string; visual_cue: string }[];
+    room_geometry?: RoomGeometry;
+    seam_keypoints?: SeamKeypoint[];
+    loop_closure?: LoopClosure;
+    static_anchors: { 
+        anchor_id: string; 
+        type: string; 
+        cardinal_direction?: string;
+        description: string; 
+        image_indices: number[];
+        associated_keypoints?: string[];
+    }[];
+    dynamic_objects: { 
+        object_id: string; 
+        type: string; 
+        cardinal_direction?: string;
+        description: string; 
+        image_indices: number[];
+        relative_to_keypoint?: string;
+    }[];
+    spatial_relations?: SpatialRelation[];
+    navigable_edges: { 
+        edge_id: string; 
+        cardinal_direction?: string;
+        description: string; 
+        visual_cue: string;
+        keypoint_anchor?: string;
+    }[];
 }
 
 export interface ObjectLocation {

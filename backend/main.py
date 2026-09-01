@@ -1,47 +1,95 @@
 import os
 import sys
 import asyncio
-import networkx as nx
+import logging
 import base64
-import uvicorn
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+import json
+import urllib.parse
+from contextlib import asynccontextmanager
 from typing import List, Dict, Any, Optional
-from pydantic import BaseModel
 
+import networkx as nx
+import uvicorn
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
+
+from models import (
+    SpatialNode, ObjectLocation, UploadNodeResponse,
+    ChatPayload, ChatResponse,
+    QueryPayload, QueryPlannerResponse,
+    EnginesResponse, EngineInfo,
+    GraphResponse, GraphNode, GraphEdge,
+    NodeImagesResponse
+)
 from vla_service import VLAService
 
-app = FastAPI(title="Spatial AI SaaS Backend", version="1.0.0")
+# Configure structured logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
+logger = logging.getLogger("spatial_os_backend")
 
-# Health check endpoints for Cloud Run
-@app.get("/")
-def read_root():
-    return {"status": "ok", "message": "Spatial AI SaaS Backend is running on Cloud Run"}
+# ─── In-Memory Session Graph & Data Store ─────────────────────────────
+session_graph = nx.DiGraph()
+node_data: Dict[str, Dict[str, Any]] = {}
+node_images: Dict[str, List[Dict[str, str]]] = {}
+node_map_images: Dict[str, str] = {}
 
-@app.get("/health")
-def health_check():
-    return {"status": "healthy"}
 
-# Suppress harmless Windows asyncio ConnectionResetError (WinError 10054)
-# that fires after a successful response when the browser closes the socket.
-if sys.platform == "win32":
-    _original_handler = None
+def _seed_default_sample_topology():
+    """Load default sample topology from public/topology.json if available."""
+    possible_paths = [
+        os.path.join(os.path.dirname(__file__), "..", "frontend", "public", "topology.json"),
+        os.path.join(os.path.dirname(__file__), "public", "topology.json"),
+        "frontend/public/topology.json"
+    ]
+    for p in possible_paths:
+        if os.path.exists(p):
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    sample = json.load(f)
+                    node_name = sample.get("node_name", "Building Elevator Lobby and Stairwell")
+                    session_graph.add_node(node_name, captured=True)
+                    node_data[node_name] = sample
+                    logger.info(f"Pre-seeded session with default topology: '{node_name}'")
+                    return
+            except Exception as e:
+                logger.warning(f"Could not load sample topology: {e}")
 
-    def _silence_connection_reset(loop, context):
-        exc = context.get("exception")
-        if isinstance(exc, ConnectionResetError):
-            return  # Swallow silently
-        if _original_handler:
-            _original_handler(context)
-        else:
-            loop.default_exception_handler(context)
 
-    @app.on_event("startup")
-    async def _patch_event_loop():
-        global _original_handler
+# ─── Lifespan & Windows Asyncio Socket Fix ────────────────────────────
+_original_handler = None
+
+def _silence_connection_reset(loop, context):
+    exc = context.get("exception")
+    if isinstance(exc, ConnectionResetError) or (
+        hasattr(exc, "winerror") and getattr(exc, "winerror", None) == 10054
+    ):
+        return  # Suppress harmless connection resets on browser disconnect
+    if _original_handler:
+        _original_handler(context)
+    else:
+        loop.default_exception_handler(context)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global _original_handler
+    if sys.platform == "win32":
         loop = asyncio.get_running_loop()
         _original_handler = getattr(loop, "_exception_handler", None)
         loop.set_exception_handler(_silence_connection_reset)
+    
+    # Pre-seed session with sample data so initial queries don't 404
+    _seed_default_sample_topology()
+    yield
+
+app = FastAPI(
+    title="GeminiSpace (SPATIAL_OS) Backend",
+    version="2.0.0",
+    description="Vision-Language-Action indoor spatial mapping & ROS2 navigation API powered by Google Gemini.",
+    lifespan=lifespan
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -51,79 +99,86 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# In-memory storage
-session_graph = nx.DiGraph()
-node_data: Dict[str, Any] = {}
-node_images: Dict[str, list] = {}       # Store source images per node
-node_map_images: Dict[str, str] = {}    # Store generated map (data URL) per node
 
+# ─── Health Probes ───────────────────────────────────────────────────
 
-class QueryPayload(BaseModel):
-    user_query: str
-    current_node: str
-
-
-class ChatPayload(BaseModel):
-    query: str
-    node_name: str
-    history: List[Dict[str, str]] = []
-    engine: str = "gemini"
-
-
-@app.get("/api/engines")
-async def get_engines():
-    """Return available engines and their status."""
+@app.get("/", tags=["System"])
+def read_root():
     return {
-        "engines": [
-            {"id": "gemini", "name": "Gemini (Cloud API)", "available": True},
-        ]
+        "status": "ok",
+        "service": "GeminiSpace (SPATIAL_OS) Backend",
+        "version": "2.0.0",
+        "active_nodes": len(session_graph.nodes())
     }
 
 
-@app.post("/api/upload-node")
+@app.get("/health", tags=["System"])
+def health_check():
+    return {"status": "healthy", "nodes_count": len(session_graph.nodes())}
+
+
+@app.get("/api/engines", response_model=EnginesResponse, tags=["Engines"])
+async def get_engines():
+    """Return available cognitive AI engines and status."""
+    return EnginesResponse(
+        engines=[
+            EngineInfo(id="gemini", name="Gemini 3.7 Flash (Low Latency VLA)", available=True)
+        ]
+    )
+
+
+# ─── Core VLA Ingestion & Processing ─────────────────────────────────
+
+@app.post("/api/upload-node", response_model=UploadNodeResponse, tags=["VLA Pipeline"])
 async def upload_node(
-    node_name: str = Form(...),
-    images: List[UploadFile] = File(...),
-    engine: str = Form("gemini")
+    node_name: str = Form(..., description="Target room or area name"),
+    images: List[UploadFile] = File(..., description="8 sequential directional photos (0:N -> 7:NW)"),
+    engine: str = Form("gemini", description="AI engine identifier")
 ):
-    service = VLAService
-    engine_label = "Gemini (cloud)"
+    """
+    Executes the 3-step VLA pipeline:
+    1. Topology & SLAM Keypoints: 8 images -> Relational property graph
+    2. Bird's-Eye Map Generation: Text-Bridge -> 2D orthographic floor plan
+    3. Spatial Localization: Floor plan -> Object bounding boxes (%)
+    """
+    logger.info(f"Received {len(images)} images for node '{node_name}' (engine: {engine})")
+    
     gemini_images = []
     for img in images:
         content = await img.read()
         gemini_images.append({
-            "mime_type": img.content_type,
-            "data": base64.b64encode(content).decode('utf-8')
+            "mime_type": img.content_type or "image/jpeg",
+            "data": base64.b64encode(content).decode("utf-8")
         })
 
     try:
-        # -- Step 1: Topology Extraction --
-        print(f"[Step 1/3] [{engine_label}] Extracting topology for '{node_name}'...")
-        actual_name, topology = service.extract_topology(gemini_images, node_name)
-        print(f"[Step 1/3] Topology extracted: {actual_name}")
+        # ── Step 1: SLAM Keypoint & Relational Topology Extraction ──
+        logger.info(f"[Step 1/3] Extracting topology for '{node_name}'...")
+        actual_name, topology = VLAService.extract_topology(gemini_images, node_name)
+        logger.info(f"[Step 1/3] Topology extracted: '{actual_name}'")
 
-        # -- Step 2: Bird's-Eye Map Generation --
-        print(f"[Step 2/3] [{engine_label}] Generating bird's-eye view map...")
+        # ── Step 2: Bird's-Eye Map Generation (Text-Bridge) ──
+        logger.info("[Step 2/3] Generating 2D orthographic bird's-eye floor plan...")
         try:
-            map_image = service.generate_birds_eye_view(gemini_images, topology)
-            print(f"[Step 2/3] Map generated successfully")
+            map_image = VLAService.generate_birds_eye_view(gemini_images, topology)
+            logger.info("[Step 2/3] 2D floor plan synthesized successfully")
         except Exception as e:
-            print(f"[Step 2/3] Map generation failed: {e}, using placeholder")
+            logger.warning(f"[Step 2/3] Map synthesis fallback triggered: {e}")
             map_image = "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&q=80&w=1000"
 
-        # -- Step 3: Spatial Localization --
-        locations = []
+        # ── Step 3: Spatial Localization ──
+        locations: List[Dict[str, Any]] = []
         if map_image.startswith("data:"):
-            print(f"[Step 3/3] [{engine_label}] Localizing objects on map...")
+            logger.info("[Step 3/3] Localizing objects on synthesized floor plan...")
             try:
-                locations = service.locate_objects_in_map(map_image, topology)
-                print(f"[Step 3/3] Located {len(locations)} objects")
+                locations = VLAService.locate_objects_in_map(map_image, topology)
+                logger.info(f"[Step 3/3] Located {len(locations)} objects with bounding boxes")
             except Exception as e:
-                print(f"[Step 3/3] Localization failed: {e}")
+                logger.warning(f"[Step 3/3] Localization warning: {e}")
         else:
-            print(f"[Step 3/3] Skipping localization (no generated map)")
+            logger.info("[Step 3/3] Skipping visual localization (placeholder map in use)")
 
-        # Store results
+        # Persist to in-memory graph session
         session_graph.add_node(actual_name, captured=True)
         node_data[actual_name] = topology
         node_images[actual_name] = gemini_images
@@ -133,96 +188,135 @@ async def upload_node(
         if len(nodes) > 1:
             session_graph.add_edge(nodes[-2], actual_name)
 
-        return {
-            "status": "success",
-            "node_name": actual_name,
-            "topology": topology,
-            "map_image": map_image,
-            "locations": locations,
-            "engine": "gemini",
-            "message": f"Processed {len(images)} images with Gemini"
-        }
+        return UploadNodeResponse(
+            status="success",
+            node_name=actual_name,
+            topology=SpatialNode(**topology),
+            map_image=map_image,
+            locations=[ObjectLocation(**loc) for loc in locations],
+            engine=engine,
+            message=f"Successfully synthesized '{actual_name}' from {len(images)} photos."
+        )
     except Exception as e:
-        print(f"VLA Error: {e}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"VLA Pipeline execution failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"VLA processing error: {str(e)}"
+        )
 
 
-@app.post("/api/chat")
+# ─── Multimodal Spatial Chat & Reasoning ─────────────────────────────
+
+@app.post("/api/chat", response_model=ChatResponse, tags=["Spatial Reasoning"])
 async def chat(payload: ChatPayload):
-    service = VLAService
-    topology = node_data.get(payload.node_name)
+    """Multimodal spatial reasoning chat grounded in the extracted environment topology."""
+    target_node = payload.node_name
+    unquoted_name = urllib.parse.unquote(target_node) if target_node else ""
+    
+    topology = node_data.get(target_node) or node_data.get(unquoted_name)
+    
     if not topology:
         if node_data:
-            payload.node_name = list(node_data.keys())[-1]
-            topology = node_data[payload.node_name]
+            target_node = list(node_data.keys())[-1]
+            topology = node_data[target_node]
         else:
-            raise HTTPException(status_code=404, detail="No environment data available. Process a node first.")
+            # Graceful non-404 response when session is uninitialized
+            return ChatResponse(
+                response="No spatial environment data is currently loaded. Please upload 8 directional images on the left to initiate the VLA mapping pipeline!",
+                node_name=target_node or "none"
+            )
 
     try:
-        map_img = node_map_images.get(payload.node_name)
-        source_imgs = node_images.get(payload.node_name)
+        map_img = node_map_images.get(target_node) or node_map_images.get(unquoted_name)
+        source_imgs = node_images.get(target_node) or node_images.get(unquoted_name)
 
-        response_text = service.chat_with_environment(
-            payload.query, topology, payload.history,
+        response_text = VLAService.chat_with_environment(
+            query=payload.query,
+            topology=topology,
+            history=payload.history,
             map_image_b64=map_img,
             source_images=source_imgs
         )
-        return {"response": response_text, "node_name": payload.node_name}
+        return ChatResponse(response=response_text, node_name=target_node)
     except Exception as e:
-        print(f"Chat Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Chat reasoning error: {e}", exc_info=True)
+        return ChatResponse(
+            response=f"Spatial reasoning error: {str(e)}",
+            node_name=target_node
+        )
 
 
-@app.post("/api/query-planner")
+# ─── Trajectory Path Planner ─────────────────────────────────────────
+
+@app.post("/api/query-planner", response_model=QueryPlannerResponse, tags=["Navigation"])
 async def query_planner(payload: QueryPayload):
+    """Natural language goal-driven multi-node trajectory planner."""
     current_node = payload.current_node
-    if current_node not in session_graph.nodes() and len(session_graph.nodes()) > 0:
-        current_node = list(session_graph.nodes())[0]
-
     nodes_list = list(session_graph.nodes())
     edges_list = list(session_graph.edges())
+
+    if current_node not in nodes_list and nodes_list:
+        current_node = nodes_list[0]
+
     context_data = {n: node_data.get(n, {}).get("dynamic_objects", []) for n in nodes_list}
 
     try:
         result = VLAService.plan_trajectory(
-            nodes_list, edges_list, context_data, current_node, payload.user_query
+            nodes=nodes_list,
+            edges=edges_list,
+            context_data=context_data,
+            current_node=current_node,
+            user_query=payload.user_query
         )
-        return result
+        return QueryPlannerResponse(
+            status=result.get("status", "success"),
+            plan=result.get("plan", []),
+            message=result.get("message", "Route calculated.")
+        )
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        logger.error(f"Trajectory planning error: {e}", exc_info=True)
+        return QueryPlannerResponse(status="error", plan=[], message=str(e))
 
 
-@app.get("/api/graph")
+# ─── Graph & Node Inspection ─────────────────────────────────────────
+
+@app.get("/api/graph", response_model=GraphResponse, tags=["Topology"])
 async def get_graph():
-    nodes = [{"id": n, "data": {"label": n}, "vla": node_data.get(n)} for n in session_graph.nodes()]
-    edges = [{"id": f"e-{u}-{v}", "source": u, "target": v} for u, v in session_graph.edges()]
-    return {"nodes": nodes, "edges": edges}
+    """Retrieve active session multi-room graph topology."""
+    nodes = [
+        GraphNode(id=n, data={"label": n}, vla=node_data.get(n))
+        for n in session_graph.nodes()
+    ]
+    edges = [
+        GraphEdge(id=f"e-{u}-{v}", source=u, target=v)
+        for u, v in session_graph.edges()
+    ]
+    return GraphResponse(nodes=nodes, edges=edges)
 
 
-@app.get("/api/node/{node_id:path}/images")
+@app.get("/api/node/{node_id:path}/images", response_model=NodeImagesResponse, tags=["Topology"])
 async def get_node_images(node_id: str):
-    """Return the original 8 source images as data URLs for the interactive map."""
-    images = node_images.get(node_id, [])
-    if not images:
-        raise HTTPException(status_code=404, detail="No images found for this node")
+    """Return the original directional source photographs as Data URLs."""
+    unquoted_id = urllib.parse.unquote(node_id)
+    images = node_images.get(unquoted_id) or node_images.get(node_id, [])
     
-    result = []
-    for img in images:
-        data_url = f"data:{img['mime_type']};base64,{img['data']}"
-        result.append(data_url)
-    return {"node_id": node_id, "images": result, "count": len(result)}
+    result = [f"data:{img['mime_type']};base64,{img['data']}" for img in images]
+    return NodeImagesResponse(node_id=unquoted_id, images=result, count=len(result))
 
 
-@app.get("/api/node/{node_id:path}")
+@app.get("/api/node/{node_id:path}", response_model=SpatialNode, tags=["Topology"])
 async def get_node_detail(node_id: str):
-    if node_id not in node_data:
-        raise HTTPException(status_code=404, detail="Node not found")
-    return node_data[node_id]
+    """Return the structured semantic topology for a specific room node."""
+    unquoted_id = urllib.parse.unquote(node_id)
+    data = node_data.get(unquoted_id) or node_data.get(node_id)
+    if not data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Node '{unquoted_id}' not found in active session."
+        )
+    return SpatialNode(**data)
 
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", os.environ.get("BACKEND_PORT", 8000)))
-    uvicorn.run("main:app", host="0.0.0.0", port=port)
-
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)

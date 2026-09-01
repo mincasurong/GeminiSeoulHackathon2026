@@ -1,64 +1,65 @@
 ---
 name: frontend-visualization-guide
 description: >-
-  Use when adding, modifying, or debugging the Three.js 3D Digital Twin,
-  D3.js Semantic Graph, ReactFlow multi-room graph, or the 2D InteriorMap
-  bounding box overlay. Covers the visualization tech stack (Three.js,
-  React Three Fiber, D3, ReactFlow), component prop interfaces, and
-  how to add new visualization tabs.
+  Technical reference for the SPATIAL_OS multi-mode visualization subsystem.
+  Covers Three.js 3D Voxel Digital Twins, D3.js force-directed semantic graphs,
+  ReactFlow multi-room graphs, and 2D SVG bounding box overlays.
 ---
 
-# Frontend Visualization Guide
+# 🎨 SPATIAL_OS Frontend Visualization Guide
 
-## Overview
-
-SPATIAL_OS has four distinct visualization modes, each using a different
-rendering technology. This skill provides the technical context needed to
-modify or extend these visualizations.
+This skill provides comprehensive technical documentation for maintaining, debugging, and extending the four visualization modes in the SPATIAL_OS interface.
 
 ---
 
-## Visualization Stack
+## 1. Visualization Technology Stack
 
-| Tab | Component | Technology | Purpose |
-|-----|-----------|------------|---------|
-| MAP | `InteriorMapComponent` | Native HTML/CSS + SVG overlays | 2D floor plan with bounding boxes |
-| GRAPH | `SemanticGraph` | D3.js v7 (Force simulation) | Topology force-directed graph |
-| TWIN | `DigitalTwin` | Three.js + React Three Fiber + Drei | 3D voxel heightmap digital twin |
-| (Global) | `GraphVisualizerComponent` | ReactFlow v11 | Multi-room node graph with minimap |
+| Mode | Component | Engine / Library | Key Technical Capabilities |
+| :--- | :--- | :--- | :--- |
+| **MAP** | `InteriorMapComponent.tsx` | Native HTML5 / SVG / CSS | Interactive % bounding box overlays, source photo inspector modal, ROS2 dispatch |
+| **GRAPH** | `SemanticGraph.tsx` | D3.js v7 (`d3-force`, `d3-zoom`) | Physics force simulation, color-coded node taxonomy, SVG-to-Canvas PNG export |
+| **TWIN** | `DigitalTwin.tsx` | Three.js + React Three Fiber + Drei | 128-grid pixel brightness heightmap, `THREE.InstancedMesh` voxel wall extrusion |
+| **GLOBAL** | `GraphVisualizerComponent.tsx`| ReactFlow v11 | Multi-room building-scale topology graph with minimap and controls |
 
 ---
 
-## Component Prop Interfaces
+## 2. Component Architecture & Props Contracts
 
-### InteriorMapComponent
+### 1. `InteriorMapComponent` (2D Floor Plan + ROS2)
 ```typescript
-interface Props {
-  mapImage: string | null;           // Base64 floor plan image
-  locations: ObjectLocation[];        // { object_id, ymin, xmin, ymax, xmax }
-  topology: SpatialNode | null;       // Full topology for metadata
-  sourceImages: string[];             // 8 directional source photos
-  selectedObjectId: string | null;    // Cross-component selection sync
+interface InteriorMapProps {
+  mapImage: string | null;            // Base64 Data URL or public image URL
+  locations: ObjectLocation[];         // [{ object_id, ymin, xmin, ymax, xmax }]
+  topology: SpatialNode | null;        // Full topology structure for metadata lookup
+  sourceImages: string[];              // 8 raw directional source photographs
+  selectedObjectId: string | null;     // Cross-component selected object ID
   onSelectObject: (id: string | null) => void;
   theme: 'dark' | 'light';
-  robotApiUrl: string;               // ROS2 Nav2 endpoint
+  robotApiUrl: string;                // Target ROS2 Nav2 REST API URL
   onAddSystemLog: (log: string) => void;
 }
 ```
 
-### SemanticGraph
+### 2. `SemanticGraph` (D3.js Force-Directed Graph)
 ```typescript
-interface Props {
-  data: SpatialNode;  // Room topology
+interface SemanticGraphProps {
+  data: SpatialNode;                   // Semantic topology data
 }
 ```
-- D3 config: `forceLink(distance=100)`, `forceManyBody(strength=-300)`,
-  `forceCollide(radius=40)`, `d3.zoom(scaleExtent=[0.1, 4])`.
-- Node colors: Purple (Room root), Green (Anchors), Orange (Objects), Red (Edges).
+*   **Force Configuration**:
+    - `d3.forceLink().id(d => d.id).distance(100)`
+    - `d3.forceManyBody().strength(-300)`
+    - `d3.forceCollide().radius(40)`
+    - `d3.zoom().scaleExtent([0.1, 4])`
+*   **Node Taxonomy**:
+    - Root Room: `#A855F7` (Purple square, radius 28)
+    - Static Anchors: `#10B981` (Green square, radius 18)
+    - Dynamic Objects: `#F59E0B` (Orange square, radius 14)
+    - Navigable Edges: `#EF4444` (Red circle, radius 16)
 
-### DigitalTwin
+### 3. `DigitalTwin` (Three.js 3D Voxel Heightmap)
 ```typescript
-interface Props {
+interface DigitalTwinProps {
   mapImage: string | null;
   locations: ObjectLocation[];
   topology: SpatialNode | null;
@@ -66,55 +67,32 @@ interface Props {
   onSelectObject: (id: string | null) => void;
 }
 ```
-- Voxel generation: Reads floor plan on 128×128 grid canvas, inverts brightness
-  for wall extrusion height. Uses `THREE.InstancedMesh` for performance.
-- Camera: OrbitControls, constrained polar angles `[0, PI/2 - 0.05]`.
-
-### GraphVisualizerComponent
-```typescript
-interface Props {
-  onNodeSelect: (nodeId: string, vlaData: any) => void;
-}
-```
-- Polls `api.getGraph()` every 5 seconds.
-- Grid layout for multi-room nodes.
+*   **Voxel Wall Extrusion Algorithm**:
+    1. Loads the 2D floor plan onto an offscreen $128 \times 128$ HTML5 canvas.
+    2. Reads pixel values: `const brightness = (r + g + b) / 3`.
+    3. Inverts brightness: dark wall lines $\to$ high voxel height; light open floor $\to$ zero height.
+    4. Renders thousands of voxels in a single draw call via `THREE.InstancedMesh`.
+*   **Camera Controls**: `OrbitControls` with polar angle limits `[0, \pi/2 - 0.05]` to prevent clipping underneath the floor plane.
 
 ---
 
-## Adding a New Visualization Tab
+## 3. Adding a New Visualization Tab
 
-1. **Create the component** in `frontend/app/components/NewVizComponent.tsx`.
-2. **Extend the view mode type** in `page.tsx`:
+To add a new visualization mode (e.g. `POINTCLOUD`):
+
+1. **Create Component**: Create `frontend/app/components/PointCloudVisualizer.tsx`.
+2. **Extend ViewMode Union** in `frontend/app/page.tsx`:
    ```typescript
-   const [viewMode, setViewMode] = useState<'MAP' | 'GRAPH' | 'TWIN' | 'NEW'>('MAP');
+   type ViewMode = 'MAP' | 'GRAPH' | 'TWIN' | 'POINTCLOUD';
    ```
-3. **Add the tab button** in the tab bar section of `page.tsx`.
-4. **Add the rendering case** in the visualization panel switch:
+3. **Add Navigation Button** in the tab bar section of `page.tsx`.
+4. **Wire Render Branch**:
    ```tsx
-   {viewMode === 'NEW' && <NewVizComponent topology={topology} ... />}
+   {viewMode === 'POINTCLOUD' && (
+     <PointCloudVisualizer 
+       topology={topology} 
+       mapImage={mapImage} 
+       locations={locations} 
+     />
+   )}
    ```
-5. **Pass required props** — topology, mapImage, locations, selectedObjectId
-   are available in `page.tsx` state.
-
----
-
-## Key npm Dependencies
-
-```json
-{
-  "@react-three/drei": "^10.7.7",   // Three.js helpers (Text, OrbitControls, etc.)
-  "@react-three/fiber": "^9.5.0",   // React renderer for Three.js
-  "three": "^0.183.1",              // 3D engine
-  "d3": "^7.9.0",                   // Data-driven documents (force graphs)
-  "reactflow": "^11.11.4",          // Node-edge graph UI
-  "framer-motion": "^12.34.3",      // Animation library
-  "lucide-react": "^0.575.0"        // Icons
-}
-```
-
-## Theming Integration
-
-All visualizations respect the `theme` prop or CSS variables:
-- Dark: Background `#030712`, accent `#00FF9D`, text `#e2e8f0`
-- Light: Background `#f1f5f9`, accent `#059669`, text `#0f172a`
-- Use `var(--bg-primary)`, `var(--accent)`, `var(--text-primary)` from `globals.css`.

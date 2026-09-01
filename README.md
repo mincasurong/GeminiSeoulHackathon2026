@@ -91,12 +91,12 @@ Spatial OS is a **Vision-Language-Action (VLA)** indoor spatial intelligence sys
 
 | Pipeline Step | Model Identifier | Purpose |
 |---|---|---|
-| Topology Extraction | `gemini-3.7-flash` | Analyzes 8 images $\to$ extracts objects, static anchors, navigable edges (JSON) |
-| Layout Description | `gemini-3.7-flash` | Text-Bridge: converts visual room context into geometric spatial description |
-| Bird's-Eye Floor Plan | `gemini-3.1-flash-image` | Synthesizes clean 16:9 orthographic 2D floor plan blueprint |
+| Topology Extraction | `gemini-3.7-flash` | Low-latency SLAM reasoning: 8 images $\to$ relational property graph (JSON) |
+| Layout Description | `gemini-3.7-flash` | Text-Bridge: material extraction, seam keypoints & 2D layout drafting |
+| Bird's-Eye Floor Plan | `gemini-3.1-flash-image` | Synthesizes photorealistic 16:9 orthographic 2D floor plan rendering |
 | Object Localization | `gemini-3.7-flash` | Calculates $(y_{\min}, x_{\min}, y_{\max}, x_{\max})$ % bounding boxes on 2D map |
-| Spatial Q&A Chat | `gemini-3.7-flash` | Multimodal conversational assistant grounded in spatial graph context |
-| Trajectory Planner | `gemini-3.7-flash` | Natural language goal $\to$ multi-node path plan |
+| Spatial Q&A Chat | `gemini-3.7-flash` | Multimodal conversational assistant grounded in spatial property graph |
+| Trajectory Planner | `gemini-3.7-flash` | Goal-driven graph traversal $\to$ multi-node path plan |
 
 ---
 

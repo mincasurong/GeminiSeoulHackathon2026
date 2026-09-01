@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { CheckCircle2, Loader2, Camera, Circle } from "lucide-react";
+import { CheckCircle2, Loader2, Camera, Circle, Compass, Sparkles } from "lucide-react";
 import { api, SpatialNode, ObjectLocation } from "../lib/api";
 
 interface NodeCaptureProps {
@@ -10,19 +10,28 @@ interface NodeCaptureProps {
 }
 
 const STEPS = [
-    { id: 1, label: "Extracting topology" },
-    { id: 2, label: "Generating floor plan" },
-    { id: 3, label: "Localizing objects" },
+    { id: 1, label: "Topology & Relational Graph Extraction", model: "Gemini 3.1 Pro" },
+    { id: 2, label: "Text-Bridge & 2D Blueprint Synthesis", model: "Gemini 3.1 Flash Image" },
+    { id: 3, label: "Visual Object Grounding & Metric BBoxes", model: "Gemini 3.7 Flash" },
 ];
 
 export default function NodeCaptureComponent({ onAnalysisComplete, onBusyChange }: NodeCaptureProps) {
     const [files, setFiles] = useState<(File | null)[]>(Array(8).fill(null));
     const [isUploading, setIsUploading] = useState(false);
     const [message, setMessage] = useState("");
-    const [currentStep, setCurrentStep] = useState(0); // 0 = not started, 1-3 = active step
+    const [currentStep, setCurrentStep] = useState(0);
     const hasAutoTriggered = useRef(false);
 
-    const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+    const directions = [
+        { label: "N", angle: "0°", index: 0 },
+        { label: "NE", angle: "45°", index: 1 },
+        { label: "E", angle: "90°", index: 2 },
+        { label: "SE", angle: "135°", index: 3 },
+        { label: "S", angle: "180°", index: 4 },
+        { label: "SW", angle: "225°", index: 5 },
+        { label: "W", angle: "270°", index: 6 },
+        { label: "NW", angle: "315°", index: 7 },
+    ];
     const uploadedCount = files.filter(f => f !== null).length;
 
     const handleBatchFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -63,13 +72,13 @@ export default function NodeCaptureComponent({ onAnalysisComplete, onBusyChange 
             if (file) formData.append("images", file);
         });
 
-        // Simulate step progression
+        // Simulate step progression timer for visual feedback
         const stepTimer = setInterval(() => {
             setCurrentStep(prev => {
                 if (prev < 3) return prev + 1;
                 return prev;
             });
-        }, 15_000);
+        }, 12_000);
 
         try {
             const data = await api.uploadNode(formData);
@@ -77,7 +86,7 @@ export default function NodeCaptureComponent({ onAnalysisComplete, onBusyChange 
             setCurrentStep(3);
 
             if (data.status === "success") {
-                setMessage(`Done: ${data.message}`);
+                setMessage(`✓ Synthesized '${data.node_name}' successfully.`);
                 if (data.topology && data.map_image) {
                     onAnalysisComplete(data.topology, data.map_image, data.locations || []);
                 }
@@ -85,18 +94,18 @@ export default function NodeCaptureComponent({ onAnalysisComplete, onBusyChange 
             } else {
                 setMessage(data.detail || "Upload failed.");
             }
-        } catch (err) {
+        } catch (err: any) {
             clearInterval(stepTimer);
             console.error(err);
-            setMessage("Network error connecting to backend.");
+            setMessage(err.message || "VLA pipeline processing error.");
         } finally {
             setIsUploading(false);
             onBusyChange(false);
-            setTimeout(() => setCurrentStep(0), 3000);
+            setTimeout(() => setCurrentStep(0), 4000);
         }
-    }, [files, isUploading, onAnalysisComplete]);
+    }, [files, isUploading, onAnalysisComplete, onBusyChange]);
 
-    // Auto-trigger when all 8 images are uploaded (fires only once per batch)
+    // Auto-trigger when all 8 images are loaded
     useEffect(() => {
         if (uploadedCount >= 8 && !isUploading && !hasAutoTriggered.current) {
             hasAutoTriggered.current = true;
@@ -105,79 +114,127 @@ export default function NodeCaptureComponent({ onAnalysisComplete, onBusyChange 
     }, [uploadedCount, isUploading, uploadNode]);
 
     return (
-        <div className="flex flex-col h-full">
-            {/* Upload Area */}
-            <div className="flex-1 flex items-center justify-center py-4">
-                <div className="relative w-64 h-64">
-                    {/* Center: Batch Upload */}
-                    <label
-                        className="absolute inset-0 m-auto w-16 h-16 rounded-full bg-indigo-600 hover:bg-indigo-500 cursor-pointer border-4 box-content flex flex-col items-center justify-center z-10 shadow-[0_0_20px_rgba(79,70,229,0.5)] transition-colors"
-                        style={{ borderColor: 'var(--bg-primary)' }}
-                        title="Batch upload 8 images"
-                    >
-                        <Camera className="w-6 h-6 text-white mb-0.5" />
-                        <span style={{ fontSize: '8px' }} className="font-bold text-indigo-100 uppercase">Batch</span>
-                        <input
-                            type="file" multiple accept="image/*"
-                            className="hidden" onChange={handleBatchFileChange}
-                        />
-                    </label>
+        <div className="flex flex-col h-full gap-3">
+            {/* 360° Circular Radar / Compass Cockpit */}
+            <div className="relative w-full aspect-square max-w-[280px] mx-auto flex items-center justify-center my-2">
+                
+                {/* SVG Radar Compass Background */}
+                <svg className="absolute inset-0 w-full h-full pointer-events-none text-slate-800" viewBox="0 0 280 280">
+                    <circle cx="140" cy="140" r="130" fill="none" stroke="currentColor" strokeWidth="1" strokeDasharray="3 3" />
+                    <circle cx="140" cy="140" r="95" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.6" />
+                    <circle cx="140" cy="140" r="45" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.4" />
+                    
+                    {/* Reticle Axis Lines */}
+                    <line x1="140" y1="10" x2="140" y2="270" stroke="currentColor" strokeWidth="1" strokeDasharray="2 2" opacity="0.4" />
+                    <line x1="10" y1="140" x2="270" y2="140" stroke="currentColor" strokeWidth="1" strokeDasharray="2 2" opacity="0.4" />
+                    <line x1="48" y1="48" x2="232" y2="232" stroke="currentColor" strokeWidth="0.5" opacity="0.2" />
+                    <line x1="48" y1="232" x2="232" y2="48" stroke="currentColor" strokeWidth="0.5" opacity="0.2" />
 
-                    {/* Ring of directional uploaders */}
-                    {directions.map((dir, i) => {
-                        const angle = (i * 45 - 90) * (Math.PI / 180);
-                        const radius = 100;
-                        const x = Math.cos(angle) * radius;
-                        const y = Math.sin(angle) * radius;
+                    {/* Rotating Radar Sweep Line during Processing */}
+                    {isUploading && (
+                        <g className="radar-sweep">
+                            <line x1="140" y1="140" x2="140" y2="15" stroke="#00FF9D" strokeWidth="2" strokeOpacity="0.8" />
+                            <path d="M 140 140 L 140 15 A 125 125 0 0 1 228 51 Z" fill="url(#radarGradient)" opacity="0.2" />
+                        </g>
+                    )}
 
-                        return (
-                            <div key={dir} className="absolute w-14 h-14"
-                                style={{ left: `calc(50% + ${x}px - 28px)`, top: `calc(50% + ${y}px - 28px)` }}>
-                                <label className="w-full h-full flex flex-col items-center justify-center rounded-lg border-2 border-dashed transition-all cursor-pointer"
-                                    style={{ borderColor: files[i] ? '#6366f1' : 'var(--border-strong)', background: files[i] ? 'rgba(99,102,241,0.2)' : 'var(--bg-secondary)' }}>
-                                    {files[i] ? (
-                                        <CheckCircle2 className="w-5 h-5 text-indigo-400" />
-                                    ) : (
-                                        <span style={{ fontSize: '10px', color: 'var(--text-muted)' }} className="font-bold">{dir}</span>
-                                    )}
-                                    <input type="file" className="hidden" accept="image/*"
-                                        onChange={(e) => handleSingleFileChange(i, e)} />
-                                </label>
-                            </div>
-                        );
-                    })}
-                </div>
+                    <defs>
+                        <radialGradient id="radarGradient">
+                            <stop offset="0%" stopColor="#00FF9D" stopOpacity="0.3" />
+                            <stop offset="100%" stopColor="#00FF9D" stopOpacity="0" />
+                        </radialGradient>
+                    </defs>
+                </svg>
+
+                {/* Center: High-Tech Batch Upload Button */}
+                <label
+                    className="absolute z-20 w-16 h-16 rounded-full cursor-pointer flex flex-col items-center justify-center transition-all bg-emerald-500/20 border-2 border-emerald-400 hover:bg-emerald-500/30 hover:scale-110 shadow-[0_0_20px_rgba(0,255,157,0.3)] group"
+                    title="Batch upload all 8 directional photos (N → NW)"
+                >
+                    <Camera className="w-5 h-5 text-emerald-300 group-hover:text-white transition-colors" />
+                    <span className="text-[9px] font-mono font-bold text-emerald-300 uppercase tracking-tighter mt-0.5">
+                        BATCH
+                    </span>
+                    <input
+                        type="file" multiple accept="image/*"
+                        className="hidden" onChange={handleBatchFileChange}
+                    />
+                </label>
+
+                {/* 8 Directional Satellite Nodes */}
+                {directions.map((dir, i) => {
+                    const angle = (i * 45 - 90) * (Math.PI / 180);
+                    const radius = 98;
+                    const x = Math.cos(angle) * radius;
+                    const y = Math.sin(angle) * radius;
+                    const isLoaded = files[i] !== null;
+
+                    return (
+                        <div
+                            key={dir.label}
+                            className="absolute w-12 h-12 flex items-center justify-center z-10"
+                            style={{
+                                left: `calc(50% + ${x}px - 24px)`,
+                                top: `calc(50% + ${y}px - 24px)`
+                            }}
+                        >
+                            <label
+                                className={`w-full h-full flex flex-col items-center justify-center rounded-xl border transition-all cursor-pointer ${
+                                    isLoaded
+                                        ? 'bg-emerald-500/20 border-emerald-400 text-emerald-400 shadow-[0_0_12px_rgba(0,255,157,0.25)] scale-105'
+                                        : 'bg-slate-900/90 border-slate-700/80 text-slate-400 hover:border-emerald-500/50 hover:text-slate-200'
+                                }`}
+                                title={`Upload sector photo ${dir.label} (${dir.angle})`}
+                            >
+                                {isLoaded ? (
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                ) : (
+                                    <span className="font-mono font-bold text-[10px]">{dir.label}</span>
+                                )}
+                                <span className="font-mono text-[8px] opacity-70 tracking-tighter">{dir.angle}</span>
+                                <input
+                                    type="file" className="hidden" accept="image/*"
+                                    onChange={(e) => handleSingleFileChange(i, e)}
+                                />
+                            </label>
+                        </div>
+                    );
+                })}
             </div>
 
-            {/* Step Progress Bar */}
+            {/* Ingestion Status & Step Progress */}
             {isUploading && currentStep > 0 ? (
-                <div className="mt-2 rounded-xl p-3" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-                    <div className="flex items-center gap-1.5 mb-2">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--accent)' }} />
-                        <span className="font-mono font-bold uppercase" style={{ fontSize: '10px', color: 'var(--accent)', letterSpacing: '0.1em' }}>
-                            Processing with Gemini
-                        </span>
+                <div className="rounded-xl p-3 bg-slate-900/90 border border-emerald-500/30">
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-1.5">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                            <span className="font-mono font-bold uppercase text-xs text-emerald-400 tracking-wider">
+                                VLA Multi-Model Synthesis
+                            </span>
+                        </div>
+                        <span className="text-[10px] font-mono text-slate-400">Step {currentStep}/3</span>
                     </div>
-                    <div className="flex flex-col gap-1.5">
+
+                    <div className="flex flex-col gap-2">
                         {STEPS.map(step => {
                             const isDone = currentStep > step.id;
                             const isActive = currentStep === step.id;
                             return (
-                                <div key={step.id} className="flex items-center gap-2 font-mono" style={{ fontSize: '11px' }}>
-                                    {isDone ? (
-                                        <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--accent)' }} />
-                                    ) : isActive ? (
-                                        <Loader2 className="w-3.5 h-3.5 animate-spin flex-shrink-0" style={{ color: 'var(--accent)' }} />
-                                    ) : (
-                                        <Circle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--text-muted)', opacity: 0.3 }} />
-                                    )}
-                                    <span style={{
-                                        color: isDone ? 'var(--accent)' : isActive ? 'var(--text-primary)' : 'var(--text-muted)',
-                                        opacity: isDone || isActive ? 1 : 0.4,
-                                        fontWeight: isActive ? 700 : 400,
-                                    }}>
-                                        Step {step.id}/3: {step.label}
-                                        {isActive && <span className="ml-1" style={{ color: 'var(--text-muted)' }}>...</span>}
+                                <div key={step.id} className="flex items-center justify-between font-mono text-xs">
+                                    <div className="flex items-center gap-2">
+                                        {isDone ? (
+                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                                        ) : isActive ? (
+                                            <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-400 flex-shrink-0" />
+                                        ) : (
+                                            <Circle className="w-3.5 h-3.5 text-slate-600 flex-shrink-0 opacity-40" />
+                                        )}
+                                        <span className={isDone ? 'text-emerald-400 font-semibold' : isActive ? 'text-slate-100 font-bold' : 'text-slate-500'}>
+                                            {step.label}
+                                        </span>
+                                    </div>
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
+                                        {step.model}
                                     </span>
                                 </div>
                             );
@@ -185,16 +242,23 @@ export default function NodeCaptureComponent({ onAnalysisComplete, onBusyChange 
                     </div>
                 </div>
             ) : (
-                <div className="mt-2 text-center font-mono" style={{ color: 'var(--text-muted)' }}>
+                <div className="text-center font-mono text-xs">
                     {message ? (
-                        <div className="py-2 rounded-lg" style={{ color: message.startsWith("Done") ? 'var(--accent)' : 'var(--text-muted)' }}>
+                        <div className={`py-1.5 px-3 rounded-lg border ${
+                            message.startsWith("✓") 
+                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
+                                : 'bg-red-500/10 border-red-500/30 text-red-400'
+                        }`}>
                             {message}
                         </div>
                     ) : (
-                        <div className="py-2">
-                            <span style={{ color: 'var(--accent)' }}>{uploadedCount}</span>/8 images
-                            {' '}&middot;{' '}
-                            {uploadedCount >= 8 ? 'Auto-synthesizing...' : 'Upload all 8 to begin'}
+                        <div className="text-slate-400 flex items-center justify-center gap-2">
+                            <span>Sensory Progress:</span>
+                            <strong className="text-emerald-400 font-bold">{uploadedCount}/8 photos</strong>
+                            <span className="text-slate-600">&middot;</span>
+                            <span className="text-slate-400">
+                                {uploadedCount >= 8 ? 'Starting synthesis...' : 'Upload 8 sectors'}
+                            </span>
                         </div>
                     )}
                 </div>
