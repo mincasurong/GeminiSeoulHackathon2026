@@ -12,7 +12,7 @@
 <br />
 
 <p align="center">
-  <img src="docs/geminispace-ezgif.com-video-to-gif-converter.gif" alt="GeminiSpace Animated Cockpit Demo" width="100%" />
+  <img src="docs/geminispace_260901.gif" alt="GeminiSpace Animated Cockpit Demo" width="100%" />
 </p>
 
 **An autonomous indoor spatial intelligence & robotics navigation operating system powered by Google Gemini.**  
