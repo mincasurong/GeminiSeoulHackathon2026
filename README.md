@@ -13,7 +13,7 @@
 
 <p align="center">
   <img src="docs/geminispace-ezgif.com-video-to-gif-converter.gif" alt="GeminiSpace Animated Cockpit Demo" width="100%" />
-</p>
+</p> 
 
 **An autonomous indoor spatial intelligence & robotics navigation operating system powered by Google Gemini.**  
 *Transforms 8 ordinary panoramic smartphone photos into photorealistic 2D orthographic blueprints, 3D voxel digital twins, SLAM relational property graphs, and ROS2 robotic navigation trajectories.*
