@@ -1,19 +1,98 @@
-# Spatial OS — Indoor Navigator Powered by Gemini
+# Spatial OS (GeminiSpace) — Indoor Navigator Powered by Gemini
 
-> **Google Indoor Navigation** — Capture 8 photos from the center of any room, and Gemini builds you a semantic map you can ask questions about.
+> 🏆 **1st Place Winner — Gemini in Hard Tech Track** at the **[Gemini 3 Seoul Hackathon](https://cerebralvalley.ai/e/gemini-3-seoul-hackathon/hackathon/gallery?project=27)**  
+> 📰 **Featured on Google Korea Official Blog:** [단 7시간 만에 혼자 구현하는 AI 공간 솔루션 완성](https://blog.google/intl/ko-kr/company-news/inside-google/gemini-seoul-hackathon-first/)  
+> 🎥 **Demo & Pitch Video:** [YouTube Presentation & Live Demo](https://www.youtube.com/watch?v=rZI6C7XsnY4)
+
+---
+
+## 🏆 Hackathon Story & Background
+
+**GeminiSpace (Spatial OS)** was born at the **Gemini 3 Seoul Hackathon** (February 28, 2026, hosted by **Google DeepMind**, **Cerebral Valley**, and **AttentionX** in Seoul, Korea). Out of 111 competing AI projects, GeminiSpace was awarded **1st Place** in the *Gemini in Hard Tech* category.
+
+### 💡 The Problem
+In industrial automation and smart factories, constructing indoor spatial maps for autonomous mobile robots (AMRs) using traditional SLAM (Simultaneous Localization and Mapping) is time-consuming, rigid, and computationally heavy, requiring expensive LiDAR arrays and strict deterministic engineering.
+
+### 🚀 The 7-Hour Solo Sprint
+Developed by a solo engineer in under 7 hours using **Google Antigravity**, **Google AI Studio**, and **Gemini 3 models**, GeminiSpace completely reimagined spatial mapping by answering a simple question:  
+*“Can an AI construct a functional 2D floor plan, topological routing graph, 3D voxel twin, and robotic trajectory just by looking at 8 panoramic photos taken from the center of a room?”*
+
+### 🧠 The Core Breakthrough: Text-Bridge Architecture
+During development, feeding perspective camera photos directly into image generation models caused perspective distortions and 3D hallucinations in the 2D output. GeminiSpace solved this with a novel **Text-Bridge** pipeline:
+1. **Visual to Architecture Text**: Gemini 3 Flash analyzes 8 directional room photos and extracts structured geometric and architectural descriptions.
+2. **Text to 2D Orthographic Map**: The image generation model receives *only* pure geometric text descriptions, synthesizing distortion-free 2D floor plans.
+3. **Spatial Localization**: Gemini correlates the generated floor plan with detected objects to plot accurate interactive bounding boxes.
+
+### 🤖 Bridging Generative AI with Physical Robotics (VLA)
+GeminiSpace goes beyond passive visualization — it translates natural language spatial queries (*"How do I navigate to the table?"*) into obstacle-free coordinate trajectories formatted as standard **ROS2 Nav2 `FollowWaypoints`** payloads for direct physical hardware execution.
+
+---
+
+## 🔗 Official Links & Press
+
+- **Cerebral Valley Project Gallery:** [Project #27 — GeminiSpace (1st Place Winner)](https://cerebralvalley.ai/e/gemini-3-seoul-hackathon/hackathon/gallery?project=27)
+- **Google Korea Official Blog Interview:** [구글 블로그 인터뷰: "단 7시간 만에 혼자 구현하는 AI 공간 솔루션 완성"](https://blog.google/intl/ko-kr/company-news/inside-google/gemini-seoul-hackathon-first/)
+- **YouTube Project Showcase & Demo:** [Watch the Hackathon Pitch on YouTube](https://www.youtube.com/watch?v=rZI6C7XsnY4)
 
 ---
 
 ## What Is This?
 
-Spatial OS is a **Vision-Language-Action (VLA)** system that turns ordinary room photos into an interactive indoor map powered exclusively by **Google Gemini cloud models**.
+Spatial OS is a **Vision-Language-Action (VLA)** indoor spatial intelligence system powered exclusively by **Google Gemini cloud models**.
 
 **How it works:**
-1. 📸 Stand in the center of a room and capture **8 directional photos** (N, NE, E, SE, S, SW, W, NW)
-2. 🧠 Gemini analyzes the images and extracts a **semantic topology** (furniture, objects, pathways)
-3. 🎨 Gemini generates a **bird's-eye view floor plan** from the photos
-4. 📍 Objects are **localized on the map** with interactive bounding boxes
-5. 💬 Ask questions like *"Where is the coffee pot?"* or *"How do I get to the fridge from here?"*
+1. 📸 Stand in the center of a room and capture **8 directional photos** (N, NE, E, SE, S, SW, W, NW).
+2. 🧠 Gemini extracts a structured **semantic topology** (furniture, appliances, pathways, exits).
+3. 🎨 Gemini generates a **2D orthographic bird's-eye floor plan** via the Text-Bridge.
+4. 📍 Objects are **localized on the map** with interactive bounding boxes.
+5. 💬 Ask questions in real time (*"Where is the coffee pot?"*, *"How do I get to the elevator?"*).
+6. 🚀 Dispatch trajectories directly to **ROS2 Nav2** robot hardware controllers.
+
+---
+
+## Architecture Overview
+
+```
+┌────────────────────────────────────────────────────────┐
+│  Frontend (Next.js 16 + React 19)                      │
+│  ├── 8-Photo Radial Compass Capture                    │
+│  ├── 🗺️ MAP — Interactive 2D Map (SVG BBoxes + ROS2)   │
+│  ├── 🔗 GRAPH — D3.js Force-Directed Semantic Graph    │
+│  ├── 🧊 TWIN — Three.js 3D Voxel Digital Twin          │
+│  ├── 🌐 /scholar — Standalone Showcase & Intro Page   │
+│  └── 💬 Spatial Query & Hardware Kernel Terminal      │
+└──────────────────────────┬─────────────────────────────┘
+                           │ HTTP / REST
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│  Backend (FastAPI + Google GenAI SDK)                  │
+│                                                        │
+│  POST /api/upload-node  ──► 3-Step VLA Pipeline        │
+│    Step 1: Topology Extraction  (gemini-3.6-flash)     │
+│    Step 2a: Layout Description  (gemini-3.6-flash)     │
+│    Step 2b: Bird's-Eye Floor Plan (gemini-3.1-flash-img)│
+│    Step 3: Spatial Localization (gemini-3.6-flash)     │
+│                                                        │
+│  POST /api/chat         ──► Multimodal Spatial Q&A     │
+│  POST /api/query-planner──► Graph Trajectory Planner   │
+└──────────────────────────┬─────────────────────────────┘
+                           │ ROS2 Nav2 FollowWaypoints
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│  Hardware Layer (ROS2 Robot / Action Server)           │
+└────────────────────────────────────────────────────────┘
+```
+
+### Gemini Models Used
+
+| Pipeline Step | Model Identifier | Purpose |
+|---|---|---|
+| Topology Extraction | `gemini-3.6-flash` | Analyzes 8 images $\to$ extracts objects, static anchors, navigable edges (JSON) |
+| Layout Description | `gemini-3.6-flash` | Text-Bridge: converts visual room context into geometric spatial description |
+| Bird's-Eye Floor Plan | `gemini-3.1-flash-image` | Synthesizes clean 16:9 orthographic 2D floor plan blueprint |
+| Object Localization | `gemini-3.6-flash` | Calculates $(y_{\min}, x_{\min}, y_{\max}, x_{\max})$ % bounding boxes on 2D map |
+| Spatial Q&A Chat | `gemini-3.6-flash` | Multimodal conversational assistant grounded in spatial graph context |
+| Trajectory Planner | `gemini-3.6-flash` | Natural language goal $\to$ multi-node path plan |
 
 ---
 
@@ -24,87 +103,39 @@ Spatial OS is a **Vision-Language-Action (VLA)** system that turns ordinary room
 - Node.js 18+
 - A [Google AI Studio](https://aistudio.google.com/) API Key
 
-### 1. Clone the Repo
+### 1. Clone the Repository
 ```bash
 git clone https://github.com/mincasurong/GeminiSeoulHackathon2026.git
 cd GeminiSeoulHackathon2026
 ```
 
-### 2. Set Up Your Gemini API Key
-Create a `.env` file in the `backend/` folder:
+### 2. Configure Gemini API Key
+Create a `.env` file in the `backend/` directory:
 ```bash
 echo GOOGLE_API_KEY=your_api_key_here > backend/.env
 ```
 > 🔑 Get your API key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
 
-### 3. Start the Backend
+### 3. Run Backend (Terminal 1)
 ```bash
 cd backend
 python -m venv venv
-.\venv\Scripts\activate        # Windows
+.\venv\Scripts\activate        # Windows PowerShell
 # source venv/bin/activate     # Mac/Linux
 
 pip install -r requirements.txt
-uvicorn main:app --reload
+uvicorn main:app --reload --port 8000
 ```
-Backend runs on `http://localhost:8000`
+Backend runs on **http://localhost:8000** (Swagger API Docs at `/docs`).
 
-### 4. Start the Frontend
+### 4. Run Frontend (Terminal 2)
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-Frontend runs on `http://localhost:3000`
-
-### 5. Use the App
-1. Open `http://localhost:3000`
-2. Enter a **Node Name** (e.g., `living_room`)
-3. Upload **8 photos** (batch or individually) taken from the center of the room
-4. Click **"Synthesize Environment"**
-5. Wait for the 3-step pipeline:
-   - Step 1: Topology Extraction
-   - Step 2: Bird's-Eye Map Generation
-   - Step 3: Object Localization
-6. Explore the results:
-   - 🗺️ **MAP** — Interactive floor plan with clickable object boxes
-   - 🔗 **GRAPH** — D3.js semantic relationship graph
-   - 🧊 **TWIN** — 3D voxel digital twin view
-7. Use the **Spatial Query Interface** to ask about the environment
-
----
-
-## Architecture
-
-```
-┌────────────────────────────────────────────────────────┐
-│  Frontend (Next.js)     http://localhost:3000          │
-│  ├── Upload 8 Photos                                   │
-│  ├── MAP / GRAPH / TWIN Visualizers                    │
-│  └── Spatial Query Interface                           │
-└──────────────────────────┬─────────────────────────────┘
-                           │
-                           ▼
-┌────────────────────────────────────────────────────────┐
-│  Backend (FastAPI)      http://localhost:8000          │
-│                                                        │
-│  POST /api/upload-node  ─► 3-Step Pipeline            │
-│    Step 1: Topology     (gemini-3.6-flash)            │
-│    Step 2: Map Gen      (gemini-3.1-flash-image)       │
-│    Step 3: Localization (gemini-3.6-flash)            │
-│                                                        │
-│  POST /api/chat  ─► Spatial Q&A (gemini-3.6-flash)     │
-└────────────────────────────────────────────────────────┘
-```
-
-## Gemini Models Used
-
-| Pipeline Step | Model | Purpose |
-|---|---|---|
-| Topology Extraction | `gemini-3.6-flash` | Analyze 8 images → extract objects, anchors, edges |
-| Bird's-Eye Map | `gemini-3.1-flash-image` | Generate a 2D floor plan image |
-| Object Localization | `gemini-3.6-flash` | Find bounding boxes on the generated map |
-| Spatial Chat | `gemini-3.6-flash` | Answer questions about the environment |
+Frontend runs on **http://localhost:3000**.  
+Intro / Showcase page available at **http://localhost:3000/scholar**.
 
 ---
 
@@ -112,38 +143,49 @@ Frontend runs on `http://localhost:3000`
 
 ```
 GeminiSeoulHackathon2026/
+├── .agents/                    # Agent rules & system design knowledge base
+│   ├── AGENTS.md               # Persistent project instructions for AI agents
+│   └── skills/                 # Specialized on-demand workflows
+│       ├── spatial-os-system-design/
+│       ├── vla-pipeline-debugging/
+│       ├── frontend-visualization-guide/
+│       ├── scholar-showcase-page/
+│       └── gcp-cloud-run-deploy/
 ├── backend/
-│   ├── main.py              # FastAPI server + endpoints
-│   ├── vla_service.py        # 3-step Gemini pipeline
-│   ├── requirements.txt      # Python dependencies
-│   └── .env                  # GOOGLE_API_KEY (not committed)
+│   ├── main.py                 # FastAPI endpoints & session state
+│   ├── vla_service.py          # 3-step Gemini VLA pipeline & fallback presets
+│   ├── model_config.py         # Centralized Gemini model configuration
+│   ├── models.py               # Pydantic schemas
+│   ├── requirements.txt        # Python dependencies
+│   └── Dockerfile              # Cloud Run backend container
 ├── frontend/
 │   ├── app/
-│   │   ├── page.tsx          # Dashboard with MAP/GRAPH/TWIN tabs
+│   │   ├── page.tsx            # Main cyber-operator dashboard
+│   │   ├── scholar/            # Standalone introduction showcase page
 │   │   ├── components/
-│   │   │   ├── NodeCaptureComponent.tsx   # 8-image upload
-│   │   │   ├── InteriorMapComponent.tsx   # Interactive floor plan
-│   │   │   ├── SemanticGraph.tsx          # D3 relationship graph
-│   │   │   ├── DigitalTwin.tsx            # 3D voxel view
-│   │   │   └── CommandBarComponent.tsx    # Spatial chat
-│   │   └── lib/api.ts        # API client
-│   └── package.json
-└── README.md
+│   │   │   ├── NodeCaptureComponent.tsx    # 8-photo radial compass upload UI
+│   │   │   ├── InteriorMapComponent.tsx    # 2D map + bounding boxes + ROS2 dispatch
+│   │   │   ├── SemanticGraph.tsx           # D3.js force-directed graph
+│   │   │   ├── DigitalTwin.tsx             # Three.js 3D voxel heightmap twin
+│   │   │   ├── CommandBarComponent.tsx     # Spatial chat + system terminal
+│   │   │   └── RobotSettingsModal.tsx      # ROS2 endpoint configuration
+│   │   └── lib/api.ts          # Centralized API client
+│   ├── package.json
+│   └── Dockerfile              # Cloud Run frontend container
+├── ARCHITECTURE.md             # In-depth architectural documentation
+├── README.md
+└── manual.md
 ```
 
 ---
 
-## Deploy to Google Cloud Run
+## Deploying to Google Cloud Run
 
-We deploy this system as two separate services on Cloud Run.
+Deploy as two independent services on Google Cloud Run:
 
-### 1. Deploy the Backend
-Deploy the FastAPI backend first to obtain its public URL:
-
+### 1. Deploy Backend
 ```bash
 cd backend
-
-# Deploy the backend to Cloud Run
 gcloud run deploy spatial-ai-backend \
   --source . \
   --region us-central1 \
@@ -151,41 +193,18 @@ gcloud run deploy spatial-ai-backend \
   --set-env-vars GOOGLE_API_KEY="your_api_key_here"
 ```
 
-*Note the deployed URL provided in the output (e.g., `https://spatial-ai-backend-xxxxx-uc.a.run.app`).*
-
-### 2. Deploy the Frontend
-Now deploy the Next.js frontend, pointing it to the backend's URL. A `Dockerfile` is included in the `frontend` directory.
-
+### 2. Deploy Frontend
 ```bash
 cd ../frontend
-
-# Deploy the frontend to Cloud Run
-# Replace [BACKEND_URL] with the URL you received in step 1!
 gcloud run deploy spatial-ai-frontend \
   --source . \
   --region us-central1 \
   --allow-unauthenticated \
-  --set-env-vars NEXT_PUBLIC_API_BASE_URL="[BACKEND_URL]"
-```
-
-*After deployment completes, open the frontend URL provided in the output to access your application.*
-
-### Artifact Registry Permission Fix
-If your deployment fails with permission errors during the build step, you may need to grant Artifact Registry writer roles:
-```bash
-# Grant Artifact Registry writer role to Cloud Build and Compute Engine service accounts
-gcloud projects add-iam-policy-binding [PROJECT_ID] \
-  --member="serviceAccount:[PROJECT_NUMBER]@cloudbuild.gserviceaccount.com" \
-  --role="roles/artifactregistry.writer"
-
-gcloud projects add-iam-policy-binding [PROJECT_ID] \
-  --member="serviceAccount:[PROJECT_NUMBER]-compute@developer.gserviceaccount.com" \
-  --role="roles/artifactregistry.writer"
+  --set-env-vars NEXT_PUBLIC_API_BASE_URL="https://spatial-ai-backend-xxxxx-uc.a.run.app/api"
 ```
 
 ---
 
 ## License
 
-MIT
-
+MIT License. Built for the Google Seoul Hackathon 2026.
