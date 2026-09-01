@@ -4,6 +4,10 @@
 > 📰 **Featured on Google Korea Official Blog:** [단 7시간 만에 혼자 구현하는 AI 공간 솔루션 완성](https://blog.google/intl/ko-kr/company-news/inside-google/gemini-seoul-hackathon-first/)  
 > 🎥 **Demo & Pitch Video:** [YouTube Presentation & Live Demo](https://www.youtube.com/watch?v=rZI6C7XsnY4)
 
+<p align="center">
+  <img src="docs/geminispace-ezgif.com-video-to-gif-converter.gif" alt="GeminiSpace Animated Demo" width="100%" />
+</p>
+
 ---
 
 ## 🏆 Hackathon Story & Background
