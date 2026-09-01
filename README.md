@@ -68,10 +68,10 @@ Spatial OS is a **Vision-Language-Action (VLA)** indoor spatial intelligence sys
 │  Backend (FastAPI + Google GenAI SDK)                  │
 │                                                        │
 │  POST /api/upload-node  ──► 3-Step VLA Pipeline        │
-│    Step 1: Topology Extraction  (gemini-3.6-flash)     │
-│    Step 2a: Layout Description  (gemini-3.6-flash)     │
+│    Step 1: Topology Extraction  (gemini-3.7-flash)     │
+│    Step 2a: Layout Description  (gemini-3.7-flash)     │
 │    Step 2b: Bird's-Eye Floor Plan (gemini-3.1-flash-img)│
-│    Step 3: Spatial Localization (gemini-3.6-flash)     │
+│    Step 3: Spatial Localization (gemini-3.7-flash)     │
 │                                                        │
 │  POST /api/chat         ──► Multimodal Spatial Q&A     │
 │  POST /api/query-planner──► Graph Trajectory Planner   │
@@ -87,12 +87,12 @@ Spatial OS is a **Vision-Language-Action (VLA)** indoor spatial intelligence sys
 
 | Pipeline Step | Model Identifier | Purpose |
 |---|---|---|
-| Topology Extraction | `gemini-3.6-flash` | Analyzes 8 images $\to$ extracts objects, static anchors, navigable edges (JSON) |
-| Layout Description | `gemini-3.6-flash` | Text-Bridge: converts visual room context into geometric spatial description |
+| Topology Extraction | `gemini-3.7-flash` | Analyzes 8 images $\to$ extracts objects, static anchors, navigable edges (JSON) |
+| Layout Description | `gemini-3.7-flash` | Text-Bridge: converts visual room context into geometric spatial description |
 | Bird's-Eye Floor Plan | `gemini-3.1-flash-image` | Synthesizes clean 16:9 orthographic 2D floor plan blueprint |
-| Object Localization | `gemini-3.6-flash` | Calculates $(y_{\min}, x_{\min}, y_{\max}, x_{\max})$ % bounding boxes on 2D map |
-| Spatial Q&A Chat | `gemini-3.6-flash` | Multimodal conversational assistant grounded in spatial graph context |
-| Trajectory Planner | `gemini-3.6-flash` | Natural language goal $\to$ multi-node path plan |
+| Object Localization | `gemini-3.7-flash` | Calculates $(y_{\min}, x_{\min}, y_{\max}, x_{\max})$ % bounding boxes on 2D map |
+| Spatial Q&A Chat | `gemini-3.7-flash` | Multimodal conversational assistant grounded in spatial graph context |
+| Trajectory Planner | `gemini-3.7-flash` | Natural language goal $\to$ multi-node path plan |
 
 ---
 

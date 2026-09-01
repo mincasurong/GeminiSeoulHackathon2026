@@ -98,9 +98,9 @@ GeminiSeoulHackathon2026/
 
 | Pipeline Step | Config Constant | Current Model |
 |---|---|---|
-| Topology Extraction | `MODEL_TOPOLOGY` | `gemini-3.6-flash` |
-| Layout Description | `MODEL_LAYOUT` | `gemini-3.6-flash` |
+| Topology Extraction | `MODEL_TOPOLOGY` | `gemini-3.7-flash` |
+| Layout Description | `MODEL_LAYOUT` | `gemini-3.7-flash` |
 | Floor Plan Image | `MODEL_IMAGE` | `gemini-3.1-flash-image` |
-| Object Localization | `MODEL_LOCALIZATION` | `gemini-3.6-flash` |
-| Spatial Chat | `MODEL_CHAT` | `gemini-3.6-flash` |
-| Trajectory Planner | `MODEL_PLANNER` | `gemini-3.6-flash` |
+| Object Localization | `MODEL_LOCALIZATION` | `gemini-3.7-flash` |
+| Spatial Chat | `MODEL_CHAT` | `gemini-3.7-flash` |
+| Trajectory Planner | `MODEL_PLANNER` | `gemini-3.7-flash` |

@@ -51,7 +51,7 @@ knowledge required to extend, debug, or refactor the project.
 ### Step 1: Topology Extraction
 
 - **Service Function**: `VLAService.extract_topology()`
-- **Model**: `MODEL_TOPOLOGY` (currently `gemini-3.6-flash`)
+- **Model**: `MODEL_TOPOLOGY` (currently `gemini-3.7-flash`)
 - **Input**: 8 base64-encoded directional images (N, NE, E, SE, S, SW, W, NW)
 - **Prompt Strategy**: System prompt instructs the model to act as a spatial
   analyst examining a 360° sweep. Returns strict JSON schema.
