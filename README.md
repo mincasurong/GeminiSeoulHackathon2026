@@ -14,8 +14,8 @@
 <p align="center">
   <img src="docs/gemini_space_260902.gif" alt="GeminiSpace Animated Cockpit Demo" width="100%" />
 </p>
-1cfbaa3a353e
- indoor spatial intelligence & robotics navigation operating system powered by Google Gemini.**  
+
+**An autonomous indoor spatial intelligence & robotics navigation operating system powered by Google Gemini.**  
 *Transforms 8 ordinary panoramic smartphone photos into photorealistic 2D orthographic blueprints, 3D voxel digital twins, SLAM relational property graphs, and ROS2 robotic navigation trajectories.*
 
 </div>
@@ -37,6 +37,7 @@
 - [🧪 Automated Test Suite](#-automated-test-suite)
 - [☁️ Google Cloud Run Deployment](#️-google-cloud-run-deployment)
 - [📂 Repository Structure](#-repository-structure)
+- [⚠️ Limits](#-limits)
 - [📜 License](#-license)
 
 ---
@@ -392,6 +393,15 @@ GeminiSeoulHackathon2026/
 ├── ARCHITECTURE.md             # In-depth architectural documentation
 └── README.md                   # Project overview & documentation
 ```
+
+---
+
+## ⚠️ Limits
+
+- Room scale is assumed 10 m × 10 m (1 % = 0.1 m). Not a measured metric map.
+- “SLAM keypoints” are VLM-extracted, not a geometric SLAM frontend.
+- ROS 2 is a waypoint payload to Nav2, not a bundled robot driver.
+- Image model sees text layout only; that reduces warp, it does not certify geometry.
 
 ---
 
