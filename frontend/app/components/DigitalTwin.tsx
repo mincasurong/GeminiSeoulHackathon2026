@@ -2,7 +2,7 @@
 
 import React, { useMemo, useEffect, useState, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Text, Environment } from '@react-three/drei';
+import { OrbitControls, Text, Environment, AdaptiveDpr, AdaptiveEvents, BakeShadows, PerformanceMonitor } from '@react-three/drei';
 import * as THREE from 'three';
 
 // Interfaces matching the backend output
@@ -201,12 +201,18 @@ function Scene({ mapImage, locations, topology, selectedObjectId, onSelectObject
 }
 
 export default function DigitalTwin(props: DigitalTwinProps) {
+    const [dpr, setDpr] = useState(1.5);
     return (
         <div className="w-full h-full bg-[#0a0a0a] relative min-h-[400px]">
-            <Canvas camera={{ position: [0, 12, 12], fov: 45 }} shadows>
-                <React.Suspense fallback={null}>
-                    <Scene {...props} />
-                </React.Suspense>
+            <Canvas camera={{ position: [0, 12, 12], fov: 45 }} shadows dpr={dpr} gl={{ antialias: false, powerPreference: "high-performance" }}>
+                <PerformanceMonitor onDecline={() => setDpr(1)} onIncline={() => setDpr(1.5)}>
+                    <React.Suspense fallback={null}>
+                        <Scene {...props} />
+                        <AdaptiveDpr pixelated />
+                        <AdaptiveEvents />
+                        <BakeShadows />
+                    </React.Suspense>
+                </PerformanceMonitor>
                 <OrbitControls
                     makeDefault
                     minPolarAngle={0}

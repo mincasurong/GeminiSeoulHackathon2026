@@ -84,3 +84,10 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
   --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
   --role="roles/artifactregistry.writer"
 ```
+
+### 413 Request Entity Too Large / Invalid JSON (`<html>` Error)
+**Error**: Frontend throws `Unexpected token '<', " <html><hea"... is not valid JSON` during image upload.
+
+**Fix**: 
+1. **Payload Limit**: Cloud Run has a hard HTTP/1.1 request limit of 32 MB. Uploading 8 raw smartphone photos can easily exceed this limit, causing Cloud Run's reverse proxy to return a 413 HTML error page instead of hitting the FastAPI backend. Ensure client-side downscaling (e.g., HTML5 Canvas compression to 1024x1024) is active in the frontend upload component.
+2. **OOM Crash**: The default Cloud Run memory is 512 MB. Processing multiple high-res images in Python will cause OOM crashes (returning a 502/503 HTML error page). Deploy with `--memory 2Gi` to ensure adequate memory.
