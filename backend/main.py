@@ -104,7 +104,7 @@ app.add_middleware(
 
 # ─── Health Probes ───────────────────────────────────────────────────
 
-@app.get("/", tags=["System"])
+@app.get("/api/info", tags=["System"])
 def read_root():
     return {
         "status": "ok",
