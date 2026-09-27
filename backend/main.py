@@ -12,6 +12,8 @@ import networkx as nx
 import uvicorn
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from models import (
     SpatialNode, ObjectLocation, UploadNodeResponse,
@@ -316,6 +318,13 @@ async def get_node_detail(node_id: str):
         )
     return SpatialNode(**data)
 
+
+# ─── SPA Static File Serving ─────────────────────────────────────────
+frontend_dist = os.path.join(os.path.dirname(__file__), "out")
+if os.path.exists(frontend_dist):
+    app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="static")
+else:
+    logger.warning(f"Frontend dist not found at {frontend_dist}")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", os.environ.get("BACKEND_PORT", 8000)))
