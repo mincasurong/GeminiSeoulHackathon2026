@@ -12,8 +12,44 @@ interface NodeCaptureProps {
 const STEPS = [
     { id: 1, label: "Topology & Relational Graph Extraction", model: "Gemini 3.1 Pro" },
     { id: 2, label: "Text-Bridge & 2D Blueprint Synthesis", model: "Gemini 3.1 Flash Image" },
-    { id: 3, label: "Visual Object Grounding & Metric BBoxes", model: "Gemini 3.7 Flash" },
+    { id: 3, label: "Visual Object Grounding & Metric BBoxes", model: "Gemini 3.8 Flash" },
 ];
+
+const compressImage = (file: File, maxDim = 1024): Promise<File> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target?.result as string;
+            img.onload = () => {
+                let { width, height } = img;
+                if (width > height && width > maxDim) {
+                    height = Math.round((height * maxDim) / width);
+                    width = maxDim;
+                } else if (height > maxDim) {
+                    width = Math.round((width * maxDim) / height);
+                    height = maxDim;
+                }
+                const canvas = document.createElement("canvas");
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext("2d");
+                if (ctx) {
+                    ctx.drawImage(img, 0, 0, width, height);
+                    canvas.toBlob((blob) => {
+                        if (blob) resolve(new File([blob], file.name, { type: "image/jpeg" }));
+                        else resolve(file);
+                    }, "image/jpeg", 0.8);
+                } else {
+                    resolve(file);
+                }
+            };
+            img.onerror = () => resolve(file);
+        };
+        reader.onerror = () => resolve(file);
+    });
+};
 
 export default function NodeCaptureComponent({ onAnalysisComplete, onBusyChange }: NodeCaptureProps) {
     const [files, setFiles] = useState<(File | null)[]>(Array(8).fill(null));
@@ -68,9 +104,12 @@ export default function NodeCaptureComponent({ onAnalysisComplete, onBusyChange 
         formData.append("node_name", nodeName);
         formData.append("engine", "gemini");
 
-        files.forEach((file) => {
-            if (file) formData.append("images", file);
-        });
+        for (const file of files) {
+            if (file) {
+                const compressed = await compressImage(file);
+                formData.append("images", compressed);
+            }
+        }
 
         // Simulate step progression timer for visual feedback
         const stepTimer = setInterval(() => {
