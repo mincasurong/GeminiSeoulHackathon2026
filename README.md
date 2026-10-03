@@ -83,7 +83,7 @@ flowchart LR
 
     subgraph S2["Step 2: Text-Bridge Map Synthesis"]
         TOPO --> S2A["Step 2a: Layout Description\n(Authentic Materials & Closed Polygon)"]
-        S2A -->|Text Only (No Photos)| S2B["Step 2b: 2D Blueprint Synthesis\n(Gemini 3.1 Flash Image)"]
+        S2A -->|"Text Only (No Photos)"| S2B["Step 2b: 2D Blueprint Synthesis\n(Gemini 3.1 Flash Image)"]
     end
 
     subgraph S3["Step 3: Object Localization"]
