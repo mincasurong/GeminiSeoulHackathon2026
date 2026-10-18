@@ -4,8 +4,10 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, ArrowLeft, CheckCircle2, ShieldCheck, Loader2 } from "lucide-react";
 import { UserProfile } from "../lib/googleAuth";
+import { Locale, TRANSLATIONS } from "../lib/i18n";
 
 interface AuthScreenProps {
+  locale: Locale;
   userProfile?: UserProfile | null;
   onGoogleLogin: () => Promise<void> | void;
   onContinue: () => void;
@@ -13,12 +15,14 @@ interface AuthScreenProps {
 }
 
 export default function AuthScreen({
+  locale,
   userProfile,
   onGoogleLogin,
   onContinue,
   onBack,
 }: AuthScreenProps) {
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const t = TRANSLATIONS[locale];
 
   const handleGoogleClick = async () => {
     setIsSigningIn(true);
@@ -44,10 +48,10 @@ export default function AuthScreen({
             className="inline-flex items-center space-x-1 hover:text-slate-200 transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-            <span>오프닝</span>
+            <span>{t.stageOpening}</span>
           </button>
           <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[11px] font-mono font-bold">
-            STEP 1 / 2 &middot; 계정 연결
+            {t.authStepBadge}
           </span>
         </div>
 
@@ -74,10 +78,10 @@ export default function AuthScreen({
 
         <div className="space-y-2">
           <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
-            Google 계정으로 시작하기
+            {t.authTitle}
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-            Google 계정으로 로그인하면 생성한 공간 도면과 워크스페이스 기록이 Google Cloud DB에 자동 저장됩니다.
+            {t.authSubtitle}
           </p>
         </div>
 
@@ -105,7 +109,7 @@ export default function AuthScreen({
               onClick={onContinue}
               className="w-full py-4 px-5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-amber-950 font-extrabold text-sm sm:text-base border-b-4 border-amber-600 active:border-b-0 active:translate-y-1 shadow-lg flex items-center justify-center space-x-2 transition-all cursor-pointer"
             >
-              <span>이 계정으로 계속하기</span>
+              <span>{t.authContinueAccount}</span>
               <ArrowRight className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
@@ -120,12 +124,12 @@ export default function AuthScreen({
               {isSigningIn ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                  <span>Google 인증 연결 중...</span>
+                  <span>{t.authSigningIn}</span>
                 </>
               ) : (
                 <>
                   <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
-                  <span>Google 계정으로 로그인</span>
+                  <span>{t.authGoogleSignIn}</span>
                 </>
               )}
             </button>
@@ -135,7 +139,7 @@ export default function AuthScreen({
               onClick={onContinue}
               className="w-full py-3.5 px-5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs sm:text-sm border-2 border-b-4 border-slate-700 active:border-b-2 active:translate-y-0.5 flex items-center justify-center space-x-1.5 transition-all cursor-pointer"
             >
-              <span>로그인 없이 무료 모드로 둘러보기</span>
+              <span>{t.authContinueFreeGuest}</span>
               <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
             </button>
           </div>
@@ -143,7 +147,7 @@ export default function AuthScreen({
 
         <div className="pt-2 border-t border-slate-800 flex items-center justify-center space-x-1.5 text-[11px] text-slate-400">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" aria-hidden="true" />
-          <span>개인 사용자는 기본 무료(Free) 모드로 안전하게 시작됩니다</span>
+          <span>{t.authFooterNote}</span>
         </div>
       </motion.div>
     </div>

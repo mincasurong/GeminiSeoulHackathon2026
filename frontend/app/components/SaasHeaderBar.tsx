@@ -7,14 +7,18 @@ import {
   Building2,
   LogOut,
   ShieldAlert,
+  Globe,
 } from "lucide-react";
 import { EngineType, WorkspaceInfo } from "../lib/api";
 import { UserProfile } from "../lib/googleAuth";
 import { GraphNodeSummary } from "../lib/useSpatialWorkspace";
+import { Locale, LOCALE_OPTIONS, TRANSLATIONS } from "../lib/i18n";
 
 export type AppStage = "opening" | "auth" | "intro" | "main";
 
 interface SaasHeaderBarProps {
+  locale: Locale;
+  onChangeLocale: (locale: Locale) => void;
   currentStage: AppStage;
   onChangeStage: (stage: AppStage) => void;
   selectedEngine: EngineType;
@@ -33,6 +37,8 @@ interface SaasHeaderBarProps {
 }
 
 export default function SaasHeaderBar({
+  locale,
+  onChangeLocale,
   currentStage,
   onChangeStage,
   selectedEngine,
@@ -52,12 +58,13 @@ export default function SaasHeaderBar({
   const isDark = theme === "dark";
   const currentTier = workspaceInfo?.tier || "free";
   const isPaidOrAdmin = Boolean(userProfile?.is_admin) || currentTier !== "free";
+  const t = TRANSLATIONS[locale];
 
   const stages: { id: AppStage; label: string }[] = [
-    { id: "opening", label: "1. 오프닝" },
-    { id: "auth", label: "2. 로그인" },
-    { id: "intro", label: "3. 안내" },
-    { id: "main", label: "4. 메인" },
+    { id: "opening", label: t.stageOpening },
+    { id: "auth", label: t.stageAuth },
+    { id: "intro", label: t.stageIntro },
+    { id: "main", label: t.stageMain },
   ];
 
   return (
@@ -70,7 +77,7 @@ export default function SaasHeaderBar({
             type="button"
             onClick={() => onChangeStage("opening")}
             className="flex items-center gap-2.5 group cursor-pointer text-left"
-            title="오프닝 페이지 다시 보기"
+            title={t.stageOpening}
           >
             <div className="w-9 h-9 rounded-xl flex items-center justify-center font-mono font-black bg-emerald-500 text-slate-950 text-sm shadow-sm group-hover:scale-105 transition-transform">
               3D
@@ -85,7 +92,7 @@ export default function SaasHeaderBar({
           </button>
 
           <nav
-            aria-label="페이지 단계 이동"
+            aria-label="Stage Navigation"
             className="hidden md:flex items-center bg-slate-900 border border-slate-800 rounded-xl p-1 gap-1 text-xs font-bold"
           >
             {stages.map((st) => (
@@ -106,17 +113,37 @@ export default function SaasHeaderBar({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-xl px-2 py-1">
+            <Globe className="w-3.5 h-3.5 text-emerald-400" aria-hidden="true" />
+            <select
+              aria-label="Language"
+              value={locale}
+              onChange={(e) => onChangeLocale(e.target.value as Locale)}
+              className="bg-transparent text-xs font-mono font-bold text-slate-100 focus:outline-none cursor-pointer"
+            >
+              {LOCALE_OPTIONS.map((opt) => (
+                <option
+                  key={opt.code}
+                  value={opt.code}
+                  className="bg-slate-900 text-slate-100"
+                >
+                  {opt.label} ({opt.native})
+                </option>
+              ))}
+            </select>
+          </div>
+
           {currentStage === "main" && availableNodes.length > 0 && (
             <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5">
               <Building2 className="w-3.5 h-3.5 text-emerald-400" aria-hidden="true" />
               <select
-                aria-label="공간 선택"
+                aria-label="Active Spatial Node"
                 value={activeNodeName || ""}
                 onChange={(e) => {
                   const found = availableNodes.find((n) => n.id === e.target.value);
                   if (found) onSelectNode(found.id, found);
                 }}
-                className="bg-transparent text-xs font-semibold text-slate-100 focus:outline-none cursor-pointer max-w-[170px] truncate"
+                className="bg-transparent text-xs font-semibold text-slate-100 focus:outline-none cursor-pointer max-w-[160px] truncate"
               >
                 {availableNodes.map((n) => (
                   <option key={n.id} value={n.id} className="bg-slate-900 text-slate-100">
@@ -166,7 +193,7 @@ export default function SaasHeaderBar({
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-bold text-slate-200 transition-colors cursor-pointer"
           >
             <Crown className="w-3.5 h-3.5 text-amber-400" aria-hidden="true" />
-            <span>{currentTier === "free" ? "Free 모드" : currentTier.toUpperCase()}</span>
+            <span>{currentTier === "free" ? t.headerFreeMode : currentTier.toUpperCase()}</span>
           </button>
 
           {userProfile?.is_admin && (
@@ -193,10 +220,10 @@ export default function SaasHeaderBar({
               </span>
               <button
                 type="button"
-                aria-label="로그아웃"
+                aria-label={t.headerLogoutTitle}
                 onClick={onLogout}
                 className="text-slate-400 hover:text-red-400 transition-colors cursor-pointer p-0.5"
-                title="Google 계정 로그아웃"
+                title={t.headerLogoutTitle}
               >
                 <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
               </button>
@@ -207,13 +234,13 @@ export default function SaasHeaderBar({
               onClick={onOpenAuthModal}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-extrabold transition-colors cursor-pointer"
             >
-              <span>Google 로그인</span>
+              <span>{t.headerGoogleLogin}</span>
             </button>
           )}
 
           <button
             type="button"
-            aria-label={isDark ? "라이트 모드" : "다크 모드"}
+            aria-label={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
             onClick={onToggleTheme}
             className="w-8 h-8 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-300 hover:border-slate-600 cursor-pointer"
           >

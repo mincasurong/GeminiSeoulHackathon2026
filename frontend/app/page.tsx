@@ -15,6 +15,7 @@ import OpeningScreen from "./components/OpeningScreen";
 import AuthScreen from "./components/AuthScreen";
 import IntroScreen from "./components/IntroScreen";
 import { useSpatialWorkspace } from "./lib/useSpatialWorkspace";
+import { Locale, TRANSLATIONS } from "./lib/i18n";
 import {
   Download,
   Camera,
@@ -26,8 +27,10 @@ import {
 type MainWorkspaceTab = "VIEWPORT" | "SCAN" | "CHAT";
 
 export default function Home() {
+  const [locale, setLocale] = useState<Locale>("en");
   const [stage, setStage] = useState<AppStage>("opening");
   const [mainTab, setMainTab] = useState<MainWorkspaceTab>("VIEWPORT");
+  const t = TRANSLATIONS[locale];
 
   const {
     topology,
@@ -70,12 +73,20 @@ export default function Home() {
   } = useSpatialWorkspace("default");
 
   if (stage === "opening") {
-    return <OpeningScreen onNext={() => setStage("auth")} />;
+    return (
+      <OpeningScreen
+        locale={locale}
+        onChangeLocale={setLocale}
+        onNext={() => setStage("auth")}
+      />
+    );
   }
 
   return (
     <div className="grid-bg min-h-screen flex flex-col text-sm">
       <SaasHeaderBar
+        locale={locale}
+        onChangeLocale={setLocale}
         currentStage={stage}
         onChangeStage={setStage}
         selectedEngine={selectedEngine}
@@ -95,6 +106,7 @@ export default function Home() {
 
       {stage === "auth" && (
         <AuthScreen
+          locale={locale}
           userProfile={userProfile}
           onGoogleLogin={async () => {
             await handleTriggerGoogleLogin();
@@ -107,6 +119,7 @@ export default function Home() {
 
       {stage === "intro" && (
         <IntroScreen
+          locale={locale}
           onEnterMain={() => setStage("main")}
           onBack={() => setStage("auth")}
         />
@@ -125,7 +138,7 @@ export default function Home() {
               }`}
             >
               <Layers className="w-4 h-4" aria-hidden="true" />
-              <span>공간 도면 &amp; 3D</span>
+              <span>{t.mainTabViewport}</span>
             </button>
 
             <button
@@ -138,7 +151,7 @@ export default function Home() {
               }`}
             >
               <Camera className="w-4 h-4" aria-hidden="true" />
-              <span>새 방 스캔 (8장)</span>
+              <span>{t.mainTabScan}</span>
             </button>
 
             <button
@@ -151,7 +164,7 @@ export default function Home() {
               }`}
             >
               <MessageSquare className="w-4 h-4" aria-hidden="true" />
-              <span>AI 질문 &amp; 경로</span>
+              <span>{t.mainTabChat}</span>
             </button>
           </div>
 
@@ -160,7 +173,7 @@ export default function Home() {
               <div className="px-5 py-3.5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 bg-slate-950/80">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-extrabold text-sm text-white">
-                    {topology?.node_name || "샘플 공간 도면"}
+                    {topology?.node_name || "Spatial Blueprint"}
                   </span>
                   {topology?.room_geometry?.approx_dimensions && (
                     <span className="font-mono text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
@@ -172,10 +185,10 @@ export default function Home() {
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="flex bg-slate-900 border border-slate-800 rounded-xl p-1 gap-1">
                     {[
-                      { key: "MAP", label: "2D 도면" },
-                      { key: "TWIN", label: "3D 트윈" },
-                      { key: "GRAPH", label: "관계도" },
-                      { key: "FLEET", label: "멀티룸" },
+                      { key: "MAP", label: t.view2DMap },
+                      { key: "TWIN", label: t.view3DTwin },
+                      { key: "GRAPH", label: t.viewGraph },
+                      { key: "FLEET", label: t.viewFleet },
                     ].map((tab) => (
                       <button
                         key={tab.key}
@@ -197,7 +210,7 @@ export default function Home() {
                       type="button"
                       onClick={() => handleExportArtifact("dxf")}
                       className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl font-mono font-bold text-xs bg-slate-900 text-sky-300 hover:bg-slate-800 border border-slate-700 cursor-pointer"
-                      title="AutoCAD .DXF 도면 다운로드"
+                      title="AutoCAD .DXF Download"
                     >
                       <Download className="w-3.5 h-3.5" aria-hidden="true" />
                       <span>.DXF</span>
@@ -247,11 +260,9 @@ export default function Home() {
             <div className="hud-card rounded-3xl p-6 sm:p-8 max-w-xl mx-auto w-full space-y-4">
               <div className="text-center space-y-1">
                 <h2 className="text-lg font-extrabold text-white">
-                  360° 8방향 방 사진 업로드
+                  {t.scanTitle}
                 </h2>
-                <p className="text-xs text-slate-400">
-                  방 중앙에서 시계방향(N → NW)으로 촬영한 8장의 사진을 선택하면 자동으로 2D 도면과 3D 트윈이 생성됩니다.
-                </p>
+                <p className="text-xs text-slate-400">{t.scanSubtitle}</p>
               </div>
 
               <NodeCaptureComponent
@@ -282,7 +293,8 @@ export default function Home() {
                 <div className="flex items-center gap-2 text-xs text-slate-300">
                   <CreditCard className="w-4 h-4 text-emerald-400" aria-hidden="true" />
                   <span>
-                    현재 플랜: <strong>{workspaceInfo?.plan_name || "Starter B2C (Free)"}</strong>
+                    {t.currentPlanLabel}{" "}
+                    <strong>{workspaceInfo?.plan_name || "Starter B2C (Free)"}</strong>
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -293,7 +305,7 @@ export default function Home() {
                       onClick={() => handleExportArtifact(fmt)}
                       className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-mono font-bold uppercase text-emerald-300 border border-slate-700 cursor-pointer"
                     >
-                      .{fmt} 다운로드
+                      .{fmt} {t.downloadLabel}
                     </button>
                   ))}
                   <button
@@ -301,7 +313,7 @@ export default function Home() {
                     onClick={() => setIsSettingsOpen(true)}
                     className="px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-amber-950 text-xs font-extrabold cursor-pointer"
                   >
-                    구독 &amp; 결제 관리
+                    {t.manageBillingBtn}
                   </button>
                 </div>
               </div>
@@ -312,7 +324,7 @@ export default function Home() {
 
       <footer className="py-4 border-t border-slate-800/80 bg-slate-950/90 mt-auto">
         <div className="max-w-5xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-2">
-          <span>SPATIAL_OS Studio &middot; 2D CAD &amp; 3D Digital Twin</span>
+          <span>{t.footerTagline}</span>
           <a
             href="https://mincasurong.github.io"
             target="_blank"

@@ -4,28 +4,35 @@ import React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Camera, Layers, Navigation, ArrowRight, ArrowLeft, Sparkles } from "lucide-react";
+import { Locale, TRANSLATIONS } from "../lib/i18n";
 
 interface IntroScreenProps {
+  locale: Locale;
   onEnterMain: () => void;
   onBack: () => void;
 }
 
-export default function IntroScreen({ onEnterMain, onBack }: IntroScreenProps) {
+export default function IntroScreen({
+  locale,
+  onEnterMain,
+  onBack,
+}: IntroScreenProps) {
+  const t = TRANSLATIONS[locale];
   const steps = [
     {
       icon: <Camera className="w-5 h-5 text-emerald-400" aria-hidden="true" />,
-      title: "1. 기본 샘플 공간 체험 또는 8방향 사진 업로드",
-      desc: "준비된 로비 샘플 도면을 바로 둘러보거나, 방 중앙에서 찍은 8장의 사진을 업로드해 새 공간을 생성합니다.",
+      title: t.introStep1Title,
+      desc: t.introStep1Desc,
     },
     {
       icon: <Layers className="w-5 h-5 text-sky-400" aria-hidden="true" />,
-      title: "2. 2D 평면도 · 3D 디지털 트윈 · SLAM 그래프 전환",
-      desc: "상단 탭 버튼 하나로 2D 직교 도면, 3D 복셀 공간, 객체 관계도를 한눈에 확인하고 클릭해 탐색합니다.",
+      title: t.introStep2Title,
+      desc: t.introStep2Desc,
     },
     {
       icon: <Navigation className="w-5 h-5 text-amber-400" aria-hidden="true" />,
-      title: "3. AI 공간 채팅 & CAD / ROS2 경로 내보내기",
-      desc: "AI에게 공간 구조나 경로를 질문하고 AutoCAD(.DXF), .SVG 도면, ROS2 로봇 좌표를 즉시 다운로드합니다.",
+      title: t.introStep3Title,
+      desc: t.introStep3Desc,
     },
   ];
 
@@ -44,20 +51,18 @@ export default function IntroScreen({ onEnterMain, onBack }: IntroScreenProps) {
             className="inline-flex items-center space-x-1 hover:text-slate-200 transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-            <span>계정 연결</span>
+            <span>{t.stageAuth}</span>
           </button>
           <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[11px] font-mono font-bold">
-            STEP 2 / 2 &middot; 이용 안내
+            {t.introStepBadge}
           </span>
         </div>
 
         <div className="text-center space-y-1.5">
           <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
-            3단계로 끝내는 공간 지능 스튜디오
+            {t.introTitle}
           </h1>
-          <p className="text-xs sm:text-sm text-slate-400">
-            복잡한 메뉴 없이 누구나 직관적으로 사용할 수 있도록 구성했습니다.
-          </p>
+          <p className="text-xs sm:text-sm text-slate-400">{t.introSubtitle}</p>
         </div>
 
         <div className="space-y-3">
@@ -83,7 +88,7 @@ export default function IntroScreen({ onEnterMain, onBack }: IntroScreenProps) {
             onClick={onEnterMain}
             className="w-full py-4 px-6 rounded-2xl bg-amber-400 hover:bg-amber-300 text-amber-950 font-extrabold text-sm sm:text-base border-b-4 border-amber-600 active:border-b-0 active:translate-y-1 shadow-lg flex items-center justify-center space-x-2 transition-all cursor-pointer"
           >
-            <span>메인 스튜디오로 입장하기</span>
+            <span>{t.introEnterMain}</span>
             <ArrowRight className="w-5 h-5" aria-hidden="true" />
           </button>
 
@@ -92,7 +97,7 @@ export default function IntroScreen({ onEnterMain, onBack }: IntroScreenProps) {
             className="w-full py-3 px-5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-sky-300 font-bold text-xs flex items-center justify-center space-x-1.5 border border-slate-700 transition-all"
           >
             <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>인터랙티브 쇼케이스 데모 (/scholar) 먼저 보기</span>
+            <span>{t.introShowcaseLink}</span>
           </Link>
         </div>
       </motion.div>

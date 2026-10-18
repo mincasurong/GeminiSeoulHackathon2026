@@ -2,9 +2,12 @@
 
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Crown, ArrowRight, Sparkles } from "lucide-react";
+import { Crown, ArrowRight, Sparkles, Globe } from "lucide-react";
+import { Locale, LOCALE_OPTIONS, TRANSLATIONS } from "../lib/i18n";
 
 interface OpeningScreenProps {
+  locale: Locale;
+  onChangeLocale: (locale: Locale) => void;
   onNext: () => void;
 }
 
@@ -22,8 +25,13 @@ interface Particle {
 
 const COLORS = ["#10B981", "#F59E0B", "#34D399", "#38BDF8", "#059669", "#FDE047"];
 
-export default function OpeningScreen({ onNext }: OpeningScreenProps) {
+export default function OpeningScreen({
+  locale,
+  onChangeLocale,
+  onNext,
+}: OpeningScreenProps) {
   const [particles, setParticles] = useState<Particle[]>([]);
+  const t = TRANSLATIONS[locale];
 
   useEffect(() => {
     const generated: Particle[] = [];
@@ -84,8 +92,27 @@ export default function OpeningScreen({ onNext }: OpeningScreenProps) {
         initial={{ opacity: 0, scale: 0.9, y: 24 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 280, damping: 22 }}
-        className="relative z-10 max-w-md w-full text-center space-y-7 bg-white/10 backdrop-blur-xl border-2 border-b-4 border-white/25 p-8 sm:p-10 rounded-3xl shadow-2xl"
+        className="relative z-10 max-w-md w-full text-center space-y-6 bg-white/10 backdrop-blur-xl border-2 border-b-4 border-white/25 p-7 sm:p-9 rounded-3xl shadow-2xl"
       >
+        <div className="flex items-center justify-center gap-1 bg-slate-950/40 border border-white/15 rounded-xl p-1">
+          <Globe className="w-3.5 h-3.5 text-emerald-300 ml-1.5 mr-1" aria-hidden="true" />
+          {LOCALE_OPTIONS.map((opt) => (
+            <button
+              key={opt.code}
+              type="button"
+              onClick={() => onChangeLocale(opt.code)}
+              className={`px-2 py-1 rounded-lg text-[11px] font-mono font-bold transition-colors cursor-pointer ${
+                locale === opt.code
+                  ? "bg-amber-400 text-amber-950"
+                  : "text-white/75 hover:text-white"
+              }`}
+              title={opt.native}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
         <div className="relative mx-auto w-24 h-24 sm:w-28 sm:h-28">
           <motion.div
             animate={{ y: [0, -7, 0], rotate: [0, -2, 2, 0] }}
@@ -105,15 +132,15 @@ export default function OpeningScreen({ onNext }: OpeningScreenProps) {
         <div className="space-y-2.5">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/20 border border-amber-400/40 text-amber-300 text-xs font-mono font-bold">
             <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>1st Place Spatial Intelligence AI</span>
+            <span>{t.openingBadge}</span>
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            SPATIAL_OS 스튜디오
+            {t.openingTitle}
           </h1>
 
           <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed">
-            8장의 방 사진으로 <strong>2D 평면도 · 3D 디지털 트윈 · 로봇 자율주행 경로</strong>를 한 번에 완성하세요.
+            {t.openingSubtitle}
           </p>
         </div>
 
@@ -124,7 +151,7 @@ export default function OpeningScreen({ onNext }: OpeningScreenProps) {
           onClick={onNext}
           className="w-full py-4 px-6 rounded-2xl bg-amber-400 hover:bg-amber-300 text-amber-950 font-extrabold text-base tracking-wide shadow-xl shadow-amber-500/30 flex items-center justify-center space-x-2 border-b-4 border-amber-600 active:border-b-0 active:translate-y-1 transition-all cursor-pointer"
         >
-          <span>시작하기 (Get Started)</span>
+          <span>{t.openingCta}</span>
           <ArrowRight className="w-5 h-5" aria-hidden="true" />
         </motion.button>
 
