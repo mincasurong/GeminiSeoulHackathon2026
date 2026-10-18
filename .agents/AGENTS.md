@@ -98,3 +98,4 @@ The `.agents/skills/` directory provides on-demand workflows:
 - **[`frontend-visualization-guide`](file:///d:/git/GeminiSeoulHackathon2026/.agents/skills/frontend-visualization-guide/SKILL.md)**: Deep dive into Three.js voxel instancing, D3 force graph tuning, and ReactFlow integration.
 - **[`scholar-showcase-page`](file:///d:/git/GeminiSeoulHackathon2026/.agents/skills/scholar-showcase-page/SKILL.md)**: Managing the standalone `/scholar` showcase page and integrating static assets.
 - **[`gcp-cloud-run-deploy`](file:///d:/git/GeminiSeoulHackathon2026/.agents/skills/gcp-cloud-run-deploy/SKILL.md)**: Containerization, IAM setup, and deployment to Google Cloud Run.
+- **[`ui-ux-pro-max`](file:///d:/git/GeminiSeoulHackathon2026/.agents/skills/ui-ux-pro-max/SKILL.md)**: UI/UX design intelligence, color palettes, `Fira Code`/`Fira Sans` typography, glassmorphism surfaces, WCAG contrast, and `design-system/spatial_os-cloud/MASTER.md` governance.
