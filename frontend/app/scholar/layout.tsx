@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'GeminiSpace | Interactive Introduction',
+  title: 'SPATIAL_OS | Interactive Spatial Intelligence Showcase',
   description: 'Explore the pre-generated interactive maps, topology graphs, and VLA model Q&A.',
 };
 

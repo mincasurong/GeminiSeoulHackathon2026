@@ -7,7 +7,7 @@
 [![YouTube Demo](https://img.shields.io/badge/🎥_YouTube-Demo_%26_Pitch-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/watch?v=rZI6C7XsnY4)
 [![FastAPI](https://img.shields.io/badge/FastAPI-2.0.0-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![Next.js](https://img.shields.io/badge/Next.js-16.1.6-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org)
-[![Gemini](https://img.shields.io/badge/Google_Gemini-3.7_Flash-00FF9D?style=for-the-badge&logo=googlebard&logoColor=black)](https://ai.google.dev)
+[![Gemini](https://img.shields.io/badge/Google_Gemini-3.8_Flash-00FF9D?style=for-the-badge&logo=googlebard&logoColor=black)](https://ai.google.dev)
 
 <br />
 
@@ -78,16 +78,16 @@ GeminiSpace invented the **Text-Bridge Architecture** to completely eliminate pe
 ```mermaid
 flowchart LR
     subgraph S1["Step 1: Topology Extraction"]
-        P["8 Directional Photos\n(0:N → 7:NW)"] --> TOPO["Gemini 3.7 Flash\n(SLAM Keypoints & Property Graph)"]
+        P["8 Directional Photos\n(0:N → 7:NW)"] --> TOPO["Gemini 3.8 Flash\n(SLAM Keypoints & Property Graph)"]
     end
 
     subgraph S2["Step 2: Text-Bridge Map Synthesis"]
         TOPO --> S2A["Step 2a: Layout Description\n(Authentic Materials & Closed Polygon)"]
-        S2A -->|"Text Only (No Photos)"| S2B["Step 2b: 2D Blueprint Synthesis\n(Gemini 3.1 Flash Image)"]
+        S2A -->|"Text Only (No Photos)"| S2B["Step 2b: 2D Blueprint Synthesis\n(Gemini 3.8 Flash)"]
     end
 
     subgraph S3["Step 3: Object Localization"]
-        S2B & TOPO --> LOC["Step 3: Visual Grounding\n(Gemini 3.7 Flash BBoxes)"]
+        S2B & TOPO --> LOC["Step 3: Visual Grounding\n(Gemini 3.8 Flash BBoxes)"]
     end
 
     LOC --> UI["Cockpit HUD & ROS2 Action Server"]
@@ -98,11 +98,11 @@ flowchart LR
 ```
 
 1. **Step 1: Topology Extraction (`extract_topology`)**:  
-   Analyzes 8 directional photos taken sequentially at $45^\circ$ increments from the room center ($0^\circ\text{ N} \to 315^\circ\text{ NW}$). Uses `gemini-3.7-flash` to extract a **Relational Spatial Property Graph** (static architectural fixtures, movable objects, exits, and visual SLAM keypoints).
+   Analyzes 8 directional photos taken sequentially at $45^\circ$ increments from the room center ($0^\circ\text{ N} \to 315^\circ\text{ NW}$). Uses `gemini-3.8-flash` to extract a **Relational Spatial Property Graph** (static architectural fixtures, movable objects, exits, and visual SLAM keypoints).
 2. **Step 2a: Material & Geometric Layout Description (`extract_layout_description`)**:  
    Translates the photos and topological property graph into a **purely textual architectural CAD specification**. It captures authentic floor finishes (*polished grey marble tiles, parquet oak*), wall materials (*brushed metal, travertine stone*), and exact metric clearances.
 3. **Step 2b: Photorealistic 2D Floor Plan Synthesis (`generate_birds_eye_view`)**:  
-   Sends the text-only layout description to `gemini-3.1-flash-image` (Nano Banana 2), generating a **16:9 orthographic 2D top-down floor plan rendering** with zero 3D perspective distortion.
+   Sends the text-only layout description to `gemini-3.8-flash` (Nano Banana 2), generating a **16:9 orthographic 2D top-down floor plan rendering** with zero 3D perspective distortion.
 4. **Step 3: Visual Grounding & Spatial Localization (`locate_objects_in_map`)**:  
    Correlates the generated 2D map with the extracted entities to compute $(y_{\min}, x_{\min}, y_{\max}, x_{\max})$ percentage-based bounding boxes with automatic directional fallbacks.
 
@@ -198,12 +198,12 @@ The frontend SLAM operator console provides 3 synchronized multi-modal perspecti
                                      ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  Cognitive VLA Brain: Google Gemini Cloud API                           │
-│  ├── Step 1:  Topology Extraction         ──► gemini-3.7-flash          │
-│  ├── Step 2a: Material & Layout Text      ──► gemini-3.7-flash          │
-│  ├── Step 2b: 2D Blueprint Synthesis      ──► gemini-3.1-flash-image    │
-│  ├── Step 3:  Spatial Localization        ──► gemini-3.7-flash          │
-│  ├── Chat:    Environmental Reasoning     ──► gemini-3.7-flash          │
-│  └── Planner: Trajectory Path Router      ──► gemini-3.7-flash          │
+│  ├── Step 1:  Topology Extraction         ──► gemini-3.8-flash          │
+│  ├── Step 2a: Material & Layout Text      ──► gemini-3.8-flash          │
+│  ├── Step 2b: 2D Blueprint Synthesis      ──► gemini-3.8-flash          │
+│  ├── Step 3:  Spatial Localization        ──► gemini-3.8-flash          │
+│  ├── Chat:    Environmental Reasoning     ──► gemini-3.8-flash          │
+│  └── Planner: Trajectory Path Router      ──► gemini-3.8-flash          │
 └────────────────────────────────────┬────────────────────────────────────┘
                                      │ ROS2 REST Action Dispatch
                                      ▼
@@ -216,16 +216,16 @@ The frontend SLAM operator console provides 3 synchronized multi-modal perspecti
 
 ## ⚡ Gemini Models Allocation
 
-All cognitive reasoning and localization steps are powered by **`gemini-3.7-flash`** for ultra-low latency, paired with **`gemini-3.1-flash-image`** for photorealistic top-down rendering:
+All cognitive reasoning, localization, and top-down rendering steps are powered by **`gemini-3.8-flash`** for ultra-low latency:
 
 | Pipeline Step | Model Identifier | Latency Profile | Role Description |
 | :--- | :--- | :--- | :--- |
-| **Topology Extraction** | `gemini-3.7-flash` | ~1–2s | 360° SLAM seam keypoints, loop closure & relational property graph |
-| **Layout Description** | `gemini-3.7-flash` | ~1s | Material extraction, floor textures & keypoint-anchored layout |
-| **2D Blueprint Synthesis** | `gemini-3.1-flash-image` | ~3–5s | Photorealistic 16:9 orthographic 2D top-down floor plan rendering |
-| **Object Localization** | `gemini-3.7-flash` | < 1s | Percentage bounding box detection with fail-safe directional presets |
-| **Spatial Reasoning Chat** | `gemini-3.7-flash` | < 1s | Interactive environmental Q&A grounded in spatial property graph |
-| **Trajectory Planner** | `gemini-3.7-flash` | < 1s | Goal-driven multi-node trajectory path planning |
+| **Topology Extraction** | `gemini-3.8-flash` | ~1–2s | 360° SLAM seam keypoints, loop closure & relational property graph |
+| **Layout Description** | `gemini-3.8-flash` | ~1s | Material extraction, floor textures & keypoint-anchored layout |
+| **2D Blueprint Synthesis** | `gemini-3.8-flash` | ~3–5s | Photorealistic 16:9 orthographic 2D top-down floor plan rendering |
+| **Object Localization** | `gemini-3.8-flash` | < 1s | Percentage bounding box detection with fail-safe directional presets |
+| **Spatial Reasoning Chat** | `gemini-3.8-flash` | < 1s | Interactive environmental Q&A grounded in spatial property graph |
+| **Trajectory Planner** | `gemini-3.8-flash` | < 1s | Goal-driven multi-node trajectory path planning |
 
 ---
 

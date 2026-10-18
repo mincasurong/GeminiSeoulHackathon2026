@@ -58,17 +58,26 @@ export default function ScholarPage() {
       {/* Top Header Navigation */}
       <div className={styles.topBar}>
         <Link href="/" className={styles.backLink}>
-          ← Back to Live Dashboard
+          ← Back to Live SaaS Console
         </Link>
         <div className={styles.badgeGroup}>
-          <span className={styles.awardBadge}>🏆 1st Place — Gemini in Hard Tech</span>
-          <span className={styles.modelBadge}>Powered by Gemini 3.7 Flash</span>
+          <span className={styles.awardBadge}>1st Place — Hard Tech Spatial AI</span>
+          <span className={styles.modelBadge}>v4 Argon &amp; 3.8 Flash VLA</span>
+          <a
+            href="https://mincasurong.github.io"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.modelBadge}
+            style={{ textDecoration: 'none', cursor: 'pointer' }}
+          >
+            Developed by m9g
+          </a>
         </div>
       </div>
 
       {/* Hero Header */}
       <section className={styles.hero}>
-        <h1 className={styles.title}>GeminiSpace (SPATIAL_OS)</h1>
+        <h1 className={styles.title}>SPATIAL_OS Cloud</h1>
         <p className={styles.subtitle}>
           A Vision-Language-Action (VLA) indoor navigation system that turns ordinary room photos into 
           2D orthographic blueprints, 3D voxel twins, and ROS2 robotic navigation trajectories.
@@ -120,11 +129,10 @@ export default function ScholarPage() {
               </svg>
             </div>
             <div style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: '#64748b', fontFamily: 'monospace', textAlign: 'center' }}>
-              💡 Click bounding boxes above to test real-time coordinate extraction
+              Select any localized bounding box above to inspect metric coordinates and ROS2 payload
             </div>
           </div>
 
-          {/* ROS2 Payload & Object Inspector */}
           <div className={styles.card}>
             <div className={styles.inspectorBox}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
@@ -142,7 +150,7 @@ export default function ScholarPage() {
 
               <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '0.75rem' }}>
                 <div style={{ color: '#fbbf24', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>
-                  🤖 ROS2 Nav2 FollowWaypoints Payload Preview:
+                  ROS2 Nav2 FollowWaypoints Payload Preview:
                 </div>
                 <pre className={styles.jsonPreview}>
 {`{
@@ -167,7 +175,7 @@ export default function ScholarPage() {
                 className={styles.btn}
                 style={{ width: '100%', marginTop: '1rem', background: '#0284c7', color: '#fff', padding: '0.6rem', fontWeight: 'bold' }}
               >
-                🚀 Dispatch Path to ROS2 Action Server
+                Dispatch Path to ROS2 Action Server
               </button>
 
               {toastMessage && (
@@ -185,7 +193,7 @@ export default function ScholarPage() {
         <div className={styles.sectionHeader}>
           <h2 className={styles.sectionTitle}>2. Multimodal VLA Reasoning Simulator</h2>
           <p className={styles.sectionDescription}>
-            Demonstrating how Gemini 3.7 Flash correlates spatial topology with natural language queries.
+            Demonstrating how the cognitive VLA engine correlates spatial topology with natural language queries.
           </p>
         </div>
 
@@ -224,13 +232,13 @@ export default function ScholarPage() {
                 key={idx} 
                 className={`${styles.chatMessage} ${msg.sender === 'user' ? styles.chatUser : styles.chatAgent}`}
               >
-                {msg.sender === 'agent' && <span className={styles.bold}>Gemini VLA: </span>}
+                {msg.sender === 'agent' && <span className={styles.bold}>SPATIAL_OS VLA: </span>}
                 {msg.text}
               </div>
             ))}
             {qaIndex < MOCK_QA.length && qaIndex % 2 !== 0 && isPlaying && (
               <div className={`${styles.chatMessage} ${styles.chatAgent}`}>
-                <span className={styles.bold}>Gemini VLA: </span> 
+                <span className={styles.bold}>SPATIAL_OS VLA: </span> 
                 <span style={{ opacity: 0.7 }}>Analyzing spatial topology...</span>
               </div>
             )}
@@ -243,7 +251,7 @@ export default function ScholarPage() {
         <div className={styles.sectionHeader}>
           <h2 className={styles.sectionTitle}>3. The 3-Step VLA Pipeline Directives</h2>
           <p className={styles.sectionDescription}>
-            The architectural foundation powering GeminiSpace.
+            The architectural foundation powering SPATIAL_OS.
           </p>
         </div>
         <div className={styles.card}>

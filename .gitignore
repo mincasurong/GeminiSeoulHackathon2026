@@ -9,6 +9,7 @@ __pycache__/
 *.pyc
 *.pyo
 backend/venv/
+backend/.spatial_os.db
 
 # Node
 node_modules/

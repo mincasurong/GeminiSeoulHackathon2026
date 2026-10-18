@@ -4,22 +4,7 @@ import React, { useMemo, useEffect, useState, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Text, Environment, AdaptiveDpr, AdaptiveEvents, BakeShadows, PerformanceMonitor } from '@react-three/drei';
 import * as THREE from 'three';
-
-// Interfaces matching the backend output
-interface SpatialNode {
-    node_name: string;
-    static_anchors: { anchor_id: string; type: string; description: string; image_indices: number[] }[];
-    dynamic_objects: { object_id: string; type: string; description: string; image_indices: number[] }[];
-    navigable_edges: { edge_id: string; description: string; visual_cue: string }[];
-}
-
-interface ObjectLocation {
-    object_id: string;
-    ymin: number;
-    xmin: number;
-    ymax: number;
-    xmax: number;
-}
+import { SpatialNode, ObjectLocation } from '../lib/api';
 
 interface DigitalTwinProps {
     mapImage: string;
@@ -29,12 +14,12 @@ interface DigitalTwinProps {
     onSelectObject: (id: string | null) => void;
 }
 
-const GRID_SIZE = 128; // High resolution voxel grid
+const GRID_SIZE = 128;
 const FLOOR_WIDTH = 16;
 const FLOOR_DEPTH = 9;
 
 function VoxelMap({ mapImage }: { mapImage: string }) {
-    const [voxelData, setVoxelData] = useState<{ position: [number, number, number], color: THREE.Color, scale: number }[]>([]);
+    const [voxelData, setVoxelData] = useState<{ position: [number, number, number]; color: THREE.Color; scale: number }[]>([]);
 
     useEffect(() => {
         if (!mapImage) return;
@@ -61,29 +46,17 @@ function VoxelMap({ mapImage }: { mapImage: string }) {
                     const g = imageData[i + 1];
                     const b = imageData[i + 2];
 
-                    // Calculate brightness (0-255)
                     const brightness = (r + g + b) / 3;
+                    const darkness = 1.0 - brightness / 255;
+                    const height = darkness > 0.78 ? 0.45 : 0.08 + darkness * 0.14;
 
-                    // Invert brightness for height: darker = taller (walls/lines), lighter = flat (floor)
-                    let normalizedHeight = 1.0 - (brightness / 255);
-
-                    // Enhance contrast: make walls pop, keep floor flat
-                    if (normalizedHeight < 0.2) {
-                        normalizedHeight = 0.05; // Floor
-                    } else {
-                        normalizedHeight = Math.pow(normalizedHeight, 1.5) * 3; // Walls/Objects
-                    }
-
-                    const height = Math.max(0.1, normalizedHeight);
-
-                    const px = (x / canvas.width - 0.5) * FLOOR_WIDTH + (voxelWidth / 2);
-                    const pz = (y / canvas.height - 0.5) * FLOOR_DEPTH + (voxelDepth / 2);
+                    const px = (x / canvas.width - 0.5) * FLOOR_WIDTH + voxelWidth / 2;
+                    const pz = (y / canvas.height - 0.5) * FLOOR_DEPTH + voxelDepth / 2;
                     const py = height / 2;
 
                     voxels.push({
                         position: [px, py, pz] as [number, number, number],
-                        // Use the actual color from the image, slightly darkened for depth
-                        color: new THREE.Color(`rgb(${Math.max(0, r - 20)},${Math.max(0, g - 20)},${Math.max(0, b - 20)})`),
+                        color: new THREE.Color(`rgb(${Math.max(12, r)},${Math.max(18, g)},${Math.max(28, b)})`),
                         scale: height
                     });
                 }
@@ -103,7 +76,7 @@ function VoxelMap({ mapImage }: { mapImage: string }) {
 
             voxelData.forEach((voxel, i) => {
                 dummy.position.set(...voxel.position);
-                dummy.scale.set(voxelWidth * 0.85, voxel.scale, voxelDepth * 0.85);
+                dummy.scale.set(voxelWidth * 0.9, voxel.scale, voxelDepth * 0.9);
                 dummy.updateMatrix();
                 meshRef.current!.setMatrixAt(i, dummy.matrix);
                 meshRef.current!.setColorAt(i, voxel.color);
@@ -118,27 +91,104 @@ function VoxelMap({ mapImage }: { mapImage: string }) {
     return (
         <instancedMesh ref={meshRef} args={[undefined, undefined, voxelData.length]} castShadow receiveShadow>
             <boxGeometry args={[1, 1, 1]} />
-            <meshStandardMaterial roughness={0.9} metalness={0.1} />
+            <meshStandardMaterial roughness={0.85} metalness={0.15} />
         </instancedMesh>
     );
 }
 
+function ParametricPerimeterWalls({ topology }: { topology: SpatialNode }) {
+    const wallSegments = useMemo(() => {
+        let poly = topology?.room_geometry?.polygon_points;
+        if (!poly || poly.length < 3) {
+            const kps = topology?.seam_keypoints || [];
+            if (kps.length >= 3) {
+                const sorted = [...kps].sort((a, b) => a.bearing_degrees - b.bearing_degrees);
+                poly = sorted.map((kp) => {
+                    const rad = ((kp.bearing_degrees - 90) * Math.PI) / 180;
+                    const distPct = Math.min(44, 28 + ((kp.estimated_distance_m || 3.8) / 5.0) * 14);
+                    return [50 + distPct * Math.cos(rad), 50 + distPct * Math.sin(rad)];
+                });
+            } else {
+                poly = [[10, 10], [90, 10], [90, 90], [10, 90]];
+            }
+        }
+
+        const segments: { cx: number; cz: number; len: number; angle: number }[] = [];
+        for (let i = 0; i < poly.length; i++) {
+            const p1 = poly[i];
+            const p2 = poly[(i + 1) % poly.length];
+            const x1 = (p1[0] / 100 - 0.5) * FLOOR_WIDTH;
+            const z1 = (p1[1] / 100 - 0.5) * FLOOR_DEPTH;
+            const x2 = (p2[0] / 100 - 0.5) * FLOOR_WIDTH;
+            const z2 = (p2[1] / 100 - 0.5) * FLOOR_DEPTH;
+            const dx = x2 - x1;
+            const dz = z2 - z1;
+            const len = Math.hypot(dx, dz);
+            if (len < 0.1) continue;
+            segments.push({
+                cx: (x1 + x2) / 2,
+                cz: (z1 + z2) / 2,
+                len,
+                angle: -Math.atan2(dz, dx),
+            });
+        }
+        return segments;
+    }, [topology]);
+
+    const wallHeight = 2.6;
+
+    return (
+        <group>
+            {wallSegments.map((seg, i) => (
+                <mesh
+                    key={`wall-${i}`}
+                    position={[seg.cx, wallHeight / 2, seg.cz]}
+                    rotation={[0, seg.angle, 0]}
+                    castShadow
+                    receiveShadow
+                >
+                    <boxGeometry args={[seg.len, wallHeight, 0.16]} />
+                    <meshStandardMaterial
+                        color="#38bdf8"
+                        transparent
+                        opacity={0.22}
+                        roughness={0.2}
+                        metalness={0.6}
+                    />
+                </mesh>
+            ))}
+        </group>
+    );
+}
+
 function Scene({ mapImage, locations, topology, selectedObjectId, onSelectObject }: DigitalTwinProps) {
-    const staticAnchorIds = useMemo(() => new Set(topology?.static_anchors?.map(a => a.anchor_id) || []), [topology]);
+    const staticAnchorsMap = useMemo(() => {
+        const m = new Map<string, { height_m?: number }>();
+        topology?.static_anchors?.forEach(a => m.set(a.anchor_id, a));
+        return m;
+    }, [topology]);
+
+    const dynamicObjectsMap = useMemo(() => {
+        const m = new Map<string, { height_m?: number }>();
+        topology?.dynamic_objects?.forEach(d => m.set(d.object_id, d));
+        return m;
+    }, [topology]);
 
     return (
         <>
-            <ambientLight intensity={0.6} />
+            <ambientLight intensity={0.65} />
             <directionalLight position={[10, 15, 10]} intensity={1.2} castShadow shadow-mapSize={[2048, 2048]} />
             <Environment preset="city" />
 
-            {/* Voxel Generated Map */}
             <VoxelMap mapImage={mapImage} />
+            <ParametricPerimeterWalls topology={topology} />
 
-            {/* Interactive Objects Overlay */}
             {locations?.map((loc) => {
-                const isStatic = staticAnchorIds.has(loc.object_id);
+                const isStatic = staticAnchorsMap.has(loc.object_id);
                 const isSelected = selectedObjectId === loc.object_id;
+                const customHeight =
+                    staticAnchorsMap.get(loc.object_id)?.height_m ||
+                    dynamicObjectsMap.get(loc.object_id)?.height_m;
 
                 const widthPct = (loc.xmax - loc.xmin) / 100;
                 const depthPct = (loc.ymax - loc.ymin) / 100;
@@ -147,7 +197,7 @@ function Scene({ mapImage, locations, topology, selectedObjectId, onSelectObject
 
                 const w = Math.max(0.4, widthPct * FLOOR_WIDTH);
                 const d = Math.max(0.4, depthPct * FLOOR_DEPTH);
-                const h = isStatic ? 2.5 : 1.5;
+                const h = customHeight ? Math.max(0.5, customHeight) : isStatic ? 2.3 : 1.3;
 
                 const x = (cxPct - 0.5) * FLOOR_WIDTH;
                 const z = (czPct - 0.5) * FLOOR_DEPTH;
@@ -171,15 +221,14 @@ function Scene({ mapImage, locations, topology, selectedObjectId, onSelectObject
                         >
                             <boxGeometry args={[w, h, d]} />
                             <meshStandardMaterial
-                                color={isSelected ? '#00FF9D' : (isStatic ? '#008000' : '#FFA500')}
+                                color={isSelected ? '#00FF9D' : isStatic ? '#10b981' : '#f59e0b'}
                                 transparent
-                                opacity={isSelected ? 0.8 : 0.3}
-                                roughness={0.1}
+                                opacity={isSelected ? 0.85 : 0.45}
+                                roughness={0.15}
                                 metalness={0.5}
                             />
                         </mesh>
 
-                        {/* Label */}
                         {(isSelected || isStatic) && (
                             <Text
                                 position={[0, h / 2 + 0.4, 0]}
@@ -223,19 +272,22 @@ export default function DigitalTwin(props: DigitalTwinProps) {
                 />
             </Canvas>
 
-            {/* Legend */}
-            <div className="absolute bottom-4 left-4 bg-[#111]/80 backdrop-blur border border-[#333] p-3 rounded-lg text-[10px] font-mono text-[#888] flex flex-col gap-2 pointer-events-none z-10">
+            <div className="absolute bottom-4 left-4 bg-[#111]/85 backdrop-blur border border-[#333] p-3 rounded-lg text-[10px] font-mono text-[#aaa] flex flex-col gap-2 pointer-events-none z-10">
                 <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-[#008000] border border-white opacity-60"></div>
+                    <div className="w-3 h-3 bg-[#38bdf8] border border-white opacity-60"></div>
+                    <span>SLAM Parametric Perimeter Wall</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-[#10b981] border border-white opacity-60"></div>
                     <span>Static Anchor (Interactive)</span>
                 </div>
                 <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-[#FFA500] border border-white opacity-60"></div>
+                    <div className="w-3 h-3 bg-[#f59e0b] border border-white opacity-60"></div>
                     <span>Dynamic Object (Interactive)</span>
                 </div>
                 <div className="flex items-center gap-2">
                     <div className="w-3 h-3 bg-[#00FF9D] border border-white opacity-90"></div>
-                    <span>Selected</span>
+                    <span>Selected Target</span>
                 </div>
             </div>
         </div>

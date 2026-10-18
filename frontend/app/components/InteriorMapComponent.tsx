@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Download, X, Eye, Loader2, Crosshair, Grid, Send, Navigation } from "lucide-react";
-import { ObjectLocation, SpatialNode } from "../lib/api";
+import { Download, X, Eye, Loader2, Crosshair, Grid, Navigation, Layers } from "lucide-react";
+import { ObjectLocation, SpatialNode, api } from "../lib/api";
 
 interface InteriorMapProps {
     mapImage: string;
+    parametricSvg?: string | null;
     locations: ObjectLocation[];
     topology: SpatialNode;
     sourceImages: string[];
@@ -13,6 +14,7 @@ interface InteriorMapProps {
     onSelectObject: (id: string | null) => void;
     theme: 'dark' | 'light';
     robotApiUrl: string;
+    workspaceId?: string;
     onAddSystemLog: (msg: string) => void;
 }
 
@@ -28,18 +30,26 @@ const DIRECTION_LABELS = [
 ];
 
 export default function InteriorMapComponent({
-    mapImage, locations, topology, sourceImages,
-    selectedObjectId, onSelectObject, theme,
-    robotApiUrl, onAddSystemLog
+    mapImage,
+    parametricSvg,
+    locations,
+    topology,
+    sourceImages,
+    selectedObjectId,
+    onSelectObject,
+    robotApiUrl,
+    workspaceId = "default",
+    onAddSystemLog
 }: InteriorMapProps) {
     const [hoveredId, setHoveredId] = useState<string | null>(null);
     const [viewingSource, setViewingSource] = useState<{ objectId: string; imageIndices: number[] } | null>(null);
     const [isDispatching, setIsDispatching] = useState(false);
     const [showGrid, setShowGrid] = useState(true);
+    const [useCadBlueprint, setUseCadBlueprint] = useState(false);
 
     if (!mapImage) return null;
 
-    const isDark = theme === 'dark';
+    const displayedImage = useCadBlueprint && parametricSvg ? parametricSvg : mapImage;
 
     const getImageIndices = (objectId: string): number[] => {
         const anchor = topology.static_anchors?.find(a => a.anchor_id === objectId);
@@ -69,11 +79,17 @@ export default function InteriorMapComponent({
         onSelectObject(objectId === selectedObjectId ? null : objectId);
     };
 
-    const handleDownload = () => {
+    const handleDownloadImage = () => {
         const link = document.createElement('a');
-        link.href = mapImage;
-        link.download = `blueprint_${topology.node_name || 'map'}.png`;
+        link.href = displayedImage;
+        link.download = `blueprint_${topology.node_name || 'map'}.${displayedImage.startsWith('data:image/svg') ? 'svg' : 'png'}`;
         link.click();
+    };
+
+    const handleExportArtifact = (fmt: "svg" | "dxf" | "ros2") => {
+        const url = api.getExportUrl(topology.node_name, fmt, workspaceId);
+        onAddSystemLog(`[EXPORT] Downloading ${fmt.toUpperCase()} artifact for '${topology.node_name}'...`);
+        window.open(url, "_blank");
     };
 
     const dispatchToHardware = async () => {
@@ -116,8 +132,7 @@ export default function InteriorMapComponent({
             });
 
             onAddSystemLog(`[NAV2] Execution accepted: 200 OK.`);
-            alert(`✓ Trajectory successfully dispatched with ${waypoints.length} waypoints to ROS2 robot controller!`);
-        } catch (err) {
+        } catch {
             onAddSystemLog(`[NAV2] Hardware dispatch simulation completed.`);
         } finally {
             setIsDispatching(false);
@@ -130,10 +145,25 @@ export default function InteriorMapComponent({
 
     return (
         <div className="w-full h-full relative overflow-hidden bg-slate-950 flex items-center justify-center min-h-[440px]">
-            {/* Top-Right HUD Action Controls */}
-            <div className="absolute top-3 right-3 z-30 flex items-center gap-2">
-                {/* Metric Grid Toggle */}
+            <div className="absolute top-3 right-3 z-30 flex flex-wrap items-center gap-1.5">
+                {parametricSvg && (
+                    <button
+                        type="button"
+                        onClick={() => setUseCadBlueprint(!useCadBlueprint)}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-mono font-bold transition-all border ${
+                            useCadBlueprint
+                                ? 'bg-sky-500/20 text-sky-300 border-sky-400/50 shadow-[0_0_8px_rgba(56,189,248,0.25)]'
+                                : 'bg-slate-900/90 text-slate-300 border-slate-700 hover:border-sky-400/40'
+                        }`}
+                        title="Switch between AI Render and Parametric CAD Blueprint"
+                    >
+                        <Layers className="w-3.5 h-3.5" />
+                        <span>{useCadBlueprint ? 'CAD MODE' : 'RENDER MODE'}</span>
+                    </button>
+                )}
+
                 <button
+                    type="button"
                     onClick={() => setShowGrid(!showGrid)}
                     className={`flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-mono font-bold transition-all border ${
                         showGrid
@@ -146,17 +176,37 @@ export default function InteriorMapComponent({
                     <span>GRID {showGrid ? 'ON' : 'OFF'}</span>
                 </button>
 
-                {/* Download Blueprint */}
                 <button
-                    onClick={handleDownload}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-mono font-bold bg-slate-900/90 text-slate-300 hover:text-emerald-400 border border-slate-700 hover:border-emerald-500/40 transition-all"
+                    type="button"
+                    onClick={() => handleExportArtifact("svg")}
+                    className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono font-bold bg-slate-900/90 text-slate-300 hover:text-emerald-400 border border-slate-700 hover:border-emerald-500/40 transition-all"
+                    title="Export Parametric SVG Blueprint"
                 >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>SAVE</span>
+                    <Download className="w-3 h-3" />
+                    <span>SVG</span>
                 </button>
 
-                {/* Dispatch to ROS2 Robot */}
                 <button
+                    type="button"
+                    onClick={() => handleExportArtifact("dxf")}
+                    className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono font-bold bg-slate-900/90 text-sky-300 hover:text-sky-200 border border-sky-500/30 hover:border-sky-400 transition-all"
+                    title="Export AutoCAD R12 DXF File"
+                >
+                    <Download className="w-3 h-3" />
+                    <span>DXF</span>
+                </button>
+
+                <button
+                    type="button"
+                    onClick={handleDownloadImage}
+                    className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono font-bold bg-slate-900/90 text-slate-300 hover:text-emerald-400 border border-slate-700 hover:border-emerald-500/40 transition-all"
+                >
+                    <Download className="w-3 h-3" />
+                    <span>IMG</span>
+                </button>
+
+                <button
+                    type="button"
                     onClick={dispatchToHardware}
                     disabled={isDispatching}
                     className="cyber-btn flex items-center gap-1.5 px-3 py-1 text-xs disabled:opacity-40"
@@ -166,7 +216,6 @@ export default function InteriorMapComponent({
                 </button>
             </div>
 
-            {/* Top-Left Telemetry Pill */}
             {selectedLoc && (
                 <div className="absolute top-3 left-3 z-30 bg-slate-900/90 backdrop-blur border border-emerald-500/40 rounded-xl px-3 py-1.5 font-mono text-xs flex items-center gap-2 shadow-[0_0_15px_rgba(0,255,157,0.15)]">
                     <Crosshair className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
@@ -179,16 +228,13 @@ export default function InteriorMapComponent({
                 </div>
             )}
 
-            {/* Map Container & Grid Overlay */}
-            <div className="relative w-full h-full flex items-center justify-center">
-                {/* Base 2D Blueprint Image */}
+            <div className="relative w-full min-h-[460px] flex items-center justify-center">
                 <img
-                    src={mapImage}
+                    src={displayedImage}
                     alt="Orthographic Floor Plan Blueprint"
-                    className="w-full h-full object-contain select-none pointer-events-none"
+                    className="w-full h-[460px] object-contain select-none pointer-events-none"
                 />
 
-                {/* Metric Grid SVG Overlay */}
                 {showGrid && (
                     <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-25" viewBox="0 0 100 100" preserveAspectRatio="none">
                         <defs>
@@ -201,14 +247,12 @@ export default function InteriorMapComponent({
                             </pattern>
                         </defs>
                         <rect width="100" height="100" fill="url(#mainGrid)" />
-                        {/* Center Origin Reticle */}
                         <circle cx="50" cy="50" r="1.5" fill="#00FF9D" opacity="0.8" />
                         <line x1="46" y1="50" x2="54" y2="50" stroke="#00FF9D" strokeWidth="0.3" />
                         <line x1="50" y1="46" x2="50" y2="54" stroke="#00FF9D" strokeWidth="0.3" />
                     </svg>
                 )}
 
-                {/* Interactive Bounding Boxes */}
                 {locations?.map((loc, idx) => {
                     const isHovered = hoveredId === loc.object_id;
                     const isSelected = selectedObjectId === loc.object_id;
@@ -253,7 +297,6 @@ export default function InteriorMapComponent({
                                 zIndex: isSelected || isHovered ? 25 : 10,
                             }}
                         >
-                            {/* Reticle Target Crosshairs on Selected */}
                             {isSelected && (
                                 <>
                                     <div className="corner-bracket corner-tl" />
@@ -263,7 +306,6 @@ export default function InteriorMapComponent({
                                 </>
                             )}
 
-                            {/* Tag Badge */}
                             {(isHovered || isSelected) && (
                                 <div
                                     className="absolute -top-3.5 left-0 px-1.5 py-0.2 rounded text-[9px] font-mono font-bold truncate max-w-full pointer-events-none shadow-md"
@@ -276,7 +318,6 @@ export default function InteriorMapComponent({
                                 </div>
                             )}
 
-                            {/* Tooltip on Hover / Select */}
                             {(isHovered || isSelected) && (
                                 <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2.5 py-1 rounded-lg whitespace-nowrap text-[10px] font-mono font-bold z-30 bg-slate-900/95 border border-slate-700 text-slate-100 shadow-xl">
                                     {hasSource && <Eye className="w-3 h-3 text-emerald-400" />}
@@ -291,11 +332,9 @@ export default function InteriorMapComponent({
                 })}
             </div>
 
-            {/* Mapped Directional Photo Gallery Popup Modal */}
             {viewingSource && sourceImages.length > 0 && (
                 <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
                     <div className="relative max-w-3xl w-full rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh] bg-slate-900 border border-slate-800">
-                        {/* Modal Header */}
                         <div className="p-4 flex items-center justify-between border-b border-slate-800 bg-slate-950">
                             <div className="flex items-center gap-2">
                                 <Eye className="w-4 h-4 text-emerald-400" />
@@ -311,7 +350,6 @@ export default function InteriorMapComponent({
                             </button>
                         </div>
 
-                        {/* Photos Grid */}
                         <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 overflow-y-auto flex-1 bg-slate-950/60">
                             {viewingSource.imageIndices.map(idx => {
                                 const imgSrc = sourceImages[idx];

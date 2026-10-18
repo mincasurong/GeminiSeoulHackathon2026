@@ -48,7 +48,7 @@ graph LR
 ## 2. Core System Design Principles & Invariants
 
 1. **The Text-Bridge Invariant**:
-   * *Rule*: Image generation models (`gemini-3.1-flash-image`) must **never** receive raw camera photos.
+   * *Rule*: Image generation models (`gemini-3.8-flash`) must **never** receive raw camera photos.
    * *Rationale*: Feeding perspective images directly to 2D image models causes 3D perspective distortion and wall hallucinations. Always use Step 2a (Text Description) $\to$ Step 2b (2D Blueprint).
 
 2. **Guaranteed Bounding Box Coverage**:
@@ -77,7 +77,7 @@ graph LR
 4. **Conditional Render**: Render `<NewVisualizer topology={topology} mapImage={mapImage} locations={locations} />`.
 
 ### Adding a New VLA Pipeline Step (e.g. Hazard / Safety Detection)
-1. **Config**: Add `MODEL_SAFETY = "gemini-3.7-flash"` in `backend/model_config.py`.
+1. **Config**: Add `MODEL_SAFETY = "gemini-3.8-flash"` in `backend/model_config.py`.
 2. **Service Logic**: Implement `VLAService.detect_hazards(images, topology)` in `backend/vla_service.py`.
 3. **Pydantic Model**: Extend `SpatialNode` in `backend/models.py` with `hazards: List[HazardItem]`.
 4. **Orchestrator**: Wire the step into `/api/upload-node` in `backend/main.py`.

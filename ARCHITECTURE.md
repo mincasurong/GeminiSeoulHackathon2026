@@ -43,12 +43,12 @@ graph TD
     end
 
     subgraph Layer3["3. Cognitive VLA Brain (Google Gemini API)"]
-        M_TOPO["Step 1: SLAM Keypoint & Relational Topology\n(gemini-3.7-flash)"]
-        M_LAYOUT["Step 2a: Material & Geometric Layout Description\n(gemini-3.7-flash)"]
-        M_IMAGE["Step 2b: Photorealistic 2D Blueprint Synthesis\n(gemini-3.1-flash-image)"]
-        M_LOC["Step 3: Visual Grounding & Localization\n(gemini-3.7-flash)"]
-        M_CHAT["Spatial Environmental Reasoning Chat\n(gemini-3.7-flash)"]
-        M_PLAN["Goal-Driven Trajectory Graph Router\n(gemini-3.7-flash)"]
+        M_TOPO["Step 1: SLAM Keypoint & Relational Topology\n(gemini-3.8-flash)"]
+        M_LAYOUT["Step 2a: Material & Geometric Layout Description\n(gemini-3.8-flash)"]
+        M_IMAGE["Step 2b: Photorealistic 2D Blueprint Synthesis\n(gemini-3.8-flash)"]
+        M_LOC["Step 3: Visual Grounding & Localization\n(gemini-3.8-flash)"]
+        M_CHAT["Spatial Environmental Reasoning Chat\n(gemini-3.8-flash)"]
+        M_PLAN["Goal-Driven Trajectory Graph Router\n(gemini-3.8-flash)"]
     end
 
     subgraph Layer4["4. Physical Hardware Bridge (ROS2 Nav2 Action Server)"]
@@ -121,12 +121,12 @@ $$\psi = \operatorname{atan2}(Y_{\text{robot}}, X_{\text{robot}}), \quad q_z = \
 
 | Step | Function | Active Model | Input | Output | Invariant / Guardrail |
 |---|---|---|---|---|---|
-| **Step 1** | `VLAService.extract_topology` | `gemini-3.7-flash` | 8 $\times$ RGB Photos | `SpatialNode` JSON | Identifies 8 seam keypoints & validates loop closure |
-| **Step 2a** | `VLAService.extract_layout_description` | `gemini-3.7-flash` | 8 Photos + Topology | Architectural CAD text | Extracts authentic surface materials (marble, brass, oak) |
-| **Step 2b** | `VLAService.generate_birds_eye_view` | `gemini-3.1-flash-image` | **Pure text only** | 16:9 2D Data URL | Zero photos passed; strict $90^\circ$ overhead orthographic cutaway |
-| **Step 3** | `VLAService.locate_objects_in_map` | `gemini-3.7-flash` | 2D Blueprint + Entity List | `List[ObjectLocation]` | Coordinate clamping $[2.0, 98.0\%]$ + 8-sector fallback presets |
-| **Chat** | `VLAService.chat_with_environment` | `gemini-3.7-flash` | Query + Graph + History | Natural Language text | Grounded in topological property graph |
-| **Planner** | `VLAService.plan_trajectory` | `gemini-3.7-flash` | Goal Query + Global Graph | Sequential Node Array | Optimal graph traversal path sequence |
+| **Step 1** | `VLAService.extract_topology` | `gemini-3.8-flash` | 8 $\times$ RGB Photos | `SpatialNode` JSON | Identifies 8 seam keypoints & validates loop closure |
+| **Step 2a** | `VLAService.extract_layout_description` | `gemini-3.8-flash` | 8 Photos + Topology | Architectural CAD text | Extracts authentic surface materials (marble, brass, oak) |
+| **Step 2b** | `VLAService.generate_birds_eye_view` | `gemini-3.8-flash` | **Pure text only** | 16:9 2D Data URL | Zero photos passed; strict $90^\circ$ overhead orthographic cutaway |
+| **Step 3** | `VLAService.locate_objects_in_map` | `gemini-3.8-flash` | 2D Blueprint + Entity List | `List[ObjectLocation]` | Coordinate clamping $[2.0, 98.0\%]$ + 8-sector fallback presets |
+| **Chat** | `VLAService.chat_with_environment` | `gemini-3.8-flash` | Query + Graph + History | Natural Language text | Grounded in topological property graph |
+| **Planner** | `VLAService.plan_trajectory` | `gemini-3.8-flash` | Goal Query + Global Graph | Sequential Node Array | Optimal graph traversal path sequence |
 
 ---
 
@@ -229,7 +229,7 @@ sequenceDiagram
     actor User as SLAM Operator
     participant UI as Next.js 16 Dashboard
     participant API as FastAPI Backend
-    participant VLA as Gemini 3.7 Flash Brain
+    participant VLA as Gemini 3.8 Flash Brain
     participant ROS as ROS2 Nav2 Action Server
 
     User->>UI: Selects target fixture on 2D Blueprint (or types goal)

@@ -35,12 +35,12 @@ graph TD
     end
 
     subgraph Layer3["3. Cognitive VLA Brain (Google Gemini API)"]
-        M_TOPO["Topology Extraction (gemini-3.7-flash)"]
-        M_DESC["Text-Bridge Layout Description (gemini-3.7-flash)"]
-        M_IMG["2D Floor Plan Blueprint (gemini-3.1-flash-image)"]
-        M_LOC["Spatial Localization (gemini-3.7-flash)"]
-        M_CHAT["Spatial Reasoning Chat (gemini-3.7-flash)"]
-        M_PLAN["Trajectory Planner (gemini-3.7-flash)"]
+        M_TOPO["Topology Extraction (gemini-3.8-flash)"]
+        M_DESC["Text-Bridge Layout Description (gemini-3.8-flash)"]
+        M_IMG["2D Floor Plan Blueprint (gemini-3.8-flash)"]
+        M_LOC["Spatial Localization (gemini-3.8-flash)"]
+        M_CHAT["Spatial Reasoning Chat (gemini-3.8-flash)"]
+        M_PLAN["Trajectory Planner (gemini-3.8-flash)"]
     end
 
     subgraph Layer4["4. Physical Hardware Bridge (ROS2 Nav2)"]
@@ -78,17 +78,17 @@ The core IP resides in `backend/vla_service.py`. When modifying or extending the
 ### Step 1: Topology Extraction (`extract_topology`)
 - **Input**: 8 sequential directional photos captured from the room center looking outward:
   - `0: N`, `1: NE`, `2: E`, `3: SE`, `4: S`, `5: SW`, `6: W`, `7: NW`.
-- **Model**: `MODEL_TOPOLOGY` (`gemini-3.7-flash`).
+- **Model**: `MODEL_TOPOLOGY` (`gemini-3.8-flash`).
 - **Output**: Strict JSON containing `node_name`, `static_anchors`, `dynamic_objects`, and `navigable_edges`.
 
 ### Step 2: Text-Bridge Map Generation (`generate_birds_eye_view`)
 - **Step 2a (Layout Description)**: Gemini analyzes the 8 photos + topology JSON to produce a purely geometric, textual description of the room boundaries and layout.
-- **Step 2b (Image Synthesis)**: Passes **ONLY TEXT** to `MODEL_IMAGE` (`gemini-3.1-flash-image`) to generate a 16:9 orthographic 2D floor plan.
+- **Step 2b (Image Synthesis)**: Passes **ONLY TEXT** to `MODEL_IMAGE` (`gemini-3.8-flash`) to generate a 16:9 orthographic 2D floor plan.
 - **Invariant**: *Never pass raw photos directly to the image generation model.* Doing so causes 3D perspective hallucinations and perspective warping.
 
 ### Step 3: Spatial Localization (`locate_objects_in_map`)
 - **Input**: Generated 2D floor plan image + list of detected objects/anchors.
-- **Model**: `MODEL_LOCALIZATION` (`gemini-3.7-flash`).
+- **Model**: `MODEL_LOCALIZATION` (`gemini-3.8-flash`).
 - **Output**: Bounding boxes as percentages `(ymin, xmin, ymax, xmax)` in range `[0, 100]`.
 - **Fallback**: Any undetected item automatically receives a bounding box computed from its camera direction index via `DIRECTION_PRESETS`.
 
@@ -131,7 +131,7 @@ The core IP resides in `backend/vla_service.py`. When modifying or extending the
 ## 5. 🚫 Forbidden Anti-Patterns
 
 1. **Bypassing the Text-Bridge**: Do not pass raw images directly to the image generation model.
-2. **Hardcoded Model Strings**: Do not write `"gemini-3.7-flash"` directly in route or service functions.
+2. **Hardcoded Model Strings**: Do not write `"gemini-3.8-flash"` directly in route or service functions.
 3. **Unsanitized JSON**: Do not use `json.loads(response.text)` without code-fence stripping.
 4. **Float Coordinate Misinterpretation**: Do not treat bounding box coordinates as 0.0–1.0 floats; they are 0–100 percentages.
 5. **Direct Fetch Calls**: Do not introduce raw `fetch()` calls inside React presentation components.

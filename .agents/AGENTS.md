@@ -27,12 +27,12 @@ All modifications to spatial processing must preserve the **Text-Bridge Architec
 
 | Step | Operation | Function | Active Model | Input $\to$ Output |
 | :--- | :--- | :--- | :--- | :--- |
-| **Step 1** | **Topology Extraction** | `VLAService.extract_topology` | `MODEL_TOPOLOGY` (`gemini-3.7-flash`) | 8 directional photos $\to$ Relational Spatial Property Graph |
-| **Step 2a** | **Layout Description** | `VLAService.extract_layout_description` | `MODEL_LAYOUT` (`gemini-3.7-flash`) | 8 photos + topology $\to$ CoT ASCII grid + architectural text |
-| **Step 2b** | **2D Floor Plan Synthesis** | `VLAService.generate_birds_eye_view` | `MODEL_IMAGE` (`gemini-3.1-flash-image`) | **Text only** $\to$ 16:9 photorealistic 2D blueprint |
-| **Step 3** | **Spatial Localization** | `VLAService.locate_objects_in_map` | `MODEL_LOCALIZATION` (`gemini-3.7-flash`) | 2D map + object list $\to$ bounding boxes (%) |
-| **Chat** | **Spatial Reasoning** | `VLAService.chat_with_environment` | `MODEL_CHAT` (`gemini-3.7-flash`) | Query + property graph + source photos $\to$ response |
-| **Planner** | **Trajectory Planning** | `VLAService.plan_trajectory` | `MODEL_PLANNER` (`gemini-3.7-flash`) | Goal query + graph nodes $\to$ path sequence |
+| **Step 1** | **Topology Extraction** | `VLAService.extract_topology` | `MODEL_TOPOLOGY` (`gemini-3.8-flash`) | 8 directional photos $\to$ Relational Spatial Property Graph |
+| **Step 2a** | **Layout Description** | `VLAService.extract_layout_description` | `MODEL_LAYOUT` (`gemini-3.8-flash`) | 8 photos + topology $\to$ CoT ASCII grid + architectural text |
+| **Step 2b** | **2D Floor Plan Synthesis** | `VLAService.generate_birds_eye_view` | `MODEL_IMAGE` (`gemini-3.8-flash`) | **Text only** $\to$ 16:9 photorealistic 2D blueprint |
+| **Step 3** | **Spatial Localization** | `VLAService.locate_objects_in_map` | `MODEL_LOCALIZATION` (`gemini-3.8-flash`) | 2D map + object list $\to$ bounding boxes (%) |
+| **Chat** | **Spatial Reasoning** | `VLAService.chat_with_environment` | `MODEL_CHAT` (`gemini-3.8-flash`) | Query + property graph + source photos $\to$ response |
+| **Planner** | **Trajectory Planning** | `VLAService.plan_trajectory` | `MODEL_PLANNER` (`gemini-3.8-flash`) | Goal query + graph nodes $\to$ path sequence |
 
 > ⚠️ **CRITICAL INVARIANT**: Never pass raw photographs to `MODEL_IMAGE`. The Text-Bridge (Step 2a $\to$ Step 2b) is mandatory to eliminate 3D perspective distortion in generated floor plans.
 

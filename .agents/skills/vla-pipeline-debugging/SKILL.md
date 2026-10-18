@@ -48,14 +48,14 @@ graph TD
 
 ### Issue 2: 3D Perspective Hallucinations in 2D Floor Plans
 *   **Symptom**: The generated bird's-eye map shows angled 3D walls, furniture heights, or perspective distortion instead of an orthographic top-down 2D floor plan.
-*   **Root Cause**: Visual photos were passed directly to `MODEL_IMAGE` (`gemini-3.1-flash-image`), violating the **Text-Bridge invariant**.
+*   **Root Cause**: Visual photos were passed directly to `MODEL_IMAGE` (`gemini-3.8-flash`), violating the **Text-Bridge invariant**.
 *   **Remedy**: Ensure `generate_birds_eye_view` passes **ONLY the text layout description** generated in Step 2a (`extract_layout_description`) to the image generation model.
 
 ---
 
 ### Issue 3: Missing Bounding Boxes on Generated Floor Plans
 *   **Symptom**: Certain objects/anchors exist in the topology JSON but have no bounding boxes displayed on the map overlay.
-*   **Root Cause**: Visual object detector (`gemini-3.7-flash`) missed the object in the synthesized 2D floor plan image.
+*   **Root Cause**: Visual object detector (`gemini-3.8-flash`) missed the object in the synthesized 2D floor plan image.
 *   **Remedy**: Verify that the directional preset fallback is active in `vla_service.py`:
     ```python
     # Directional Fallback Map (Image Index 0:N -> 7:NW)

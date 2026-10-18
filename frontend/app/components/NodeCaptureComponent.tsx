@@ -1,22 +1,23 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { CheckCircle2, Loader2, Camera, Circle, Compass, Sparkles } from "lucide-react";
-import { api, SpatialNode, ObjectLocation } from "../lib/api";
+import { CheckCircle2, Loader2, Camera, Circle } from "lucide-react";
+import { api, SpatialNode, ObjectLocation, EngineType } from "../lib/api";
 
 interface NodeCaptureProps {
-    onAnalysisComplete: (topology: SpatialNode, mapImage: string, locations: ObjectLocation[]) => void;
+    onAnalysisComplete: (
+        topology: SpatialNode,
+        mapImage: string,
+        locations: ObjectLocation[],
+        parametricSvg?: string
+    ) => void;
     onBusyChange: (busy: boolean) => void;
+    selectedEngine?: EngineType;
+    workspaceId?: string;
 }
 
-const STEPS = [
-    { id: 1, label: "Topology & Relational Graph Extraction", model: "Gemini 3.1 Pro" },
-    { id: 2, label: "Text-Bridge & 2D Blueprint Synthesis", model: "Gemini 3.1 Flash Image" },
-    { id: 3, label: "Visual Object Grounding & Metric BBoxes", model: "Gemini 3.8 Flash" },
-];
-
 const compressImage = (file: File, maxDim = 1024): Promise<File> => {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
         reader.onload = (event) => {
@@ -51,12 +52,28 @@ const compressImage = (file: File, maxDim = 1024): Promise<File> => {
     });
 };
 
-export default function NodeCaptureComponent({ onAnalysisComplete, onBusyChange }: NodeCaptureProps) {
+export default function NodeCaptureComponent({
+    onAnalysisComplete,
+    onBusyChange,
+    selectedEngine = "gemini-4-argon",
+    workspaceId = "default",
+}: NodeCaptureProps) {
     const [files, setFiles] = useState<(File | null)[]>(Array(8).fill(null));
+    const [customNodeName, setCustomNodeName] = useState("");
     const [isUploading, setIsUploading] = useState(false);
     const [message, setMessage] = useState("");
     const [currentStep, setCurrentStep] = useState(0);
+    const [stepStatusLabel, setStepStatusLabel] = useState("");
     const hasAutoTriggered = useRef(false);
+
+    const stepOneModelLabel =
+        selectedEngine === "gemini-3.8-flash" ? "3.8 Flash" : "v4 Argon Pro";
+
+    const steps = [
+        { id: 1, label: "Topology & Parametric SLAM Graph", model: stepOneModelLabel },
+        { id: 2, label: "Text-Bridge & CAD Blueprint Synthesis", model: "3.8 Flash" },
+        { id: 3, label: "Visual Object Grounding & Metric BBoxes", model: "3.8 Flash" },
+    ];
 
     const directions = [
         { label: "N", angle: "0°", index: 0 },
@@ -72,7 +89,9 @@ export default function NodeCaptureComponent({ onAnalysisComplete, onBusyChange 
 
     const handleBatchFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
-            const selectedFiles = Array.from(e.target.files).sort((a, b) => a.name.localeCompare(b.name));
+            const selectedFiles = Array.from(e.target.files).sort((a, b) =>
+                a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" })
+            );
             const newFiles = [...files];
             for (let i = 0; i < Math.min(8, selectedFiles.length); i++) {
                 newFiles[i] = selectedFiles[i];
@@ -97,12 +116,14 @@ export default function NodeCaptureComponent({ onAnalysisComplete, onBusyChange 
         setIsUploading(true);
         setMessage("");
         setCurrentStep(1);
+        setStepStatusLabel("Streaming 8 sectors to VLA pipeline...");
         onBusyChange(true);
 
-        const nodeName = `room_${Date.now().toString(36)}`;
+        const nodeName = customNodeName.trim() || `room_${Date.now().toString(36)}`;
         const formData = new FormData();
         formData.append("node_name", nodeName);
-        formData.append("engine", "gemini");
+        formData.append("engine", selectedEngine);
+        formData.append("workspace_id", workspaceId);
 
         for (const file of files) {
             if (file) {
@@ -111,40 +132,44 @@ export default function NodeCaptureComponent({ onAnalysisComplete, onBusyChange 
             }
         }
 
-        // Simulate step progression timer for visual feedback
-        const stepTimer = setInterval(() => {
-            setCurrentStep(prev => {
-                if (prev < 3) return prev + 1;
-                return prev;
-            });
-        }, 12_000);
-
         try {
-            const data = await api.uploadNode(formData);
-            clearInterval(stepTimer);
+            let finalData = await api.uploadNodeStream(formData, (evt) => {
+                if (evt.step) setCurrentStep(evt.step);
+                if (evt.label) setStepStatusLabel(evt.label);
+            }).catch(async () => {
+                return await api.uploadNode(formData);
+            });
+
             setCurrentStep(3);
 
-            if (data.status === "success") {
-                setMessage(`✓ Synthesized '${data.node_name}' successfully.`);
-                if (data.topology && data.map_image) {
-                    onAnalysisComplete(data.topology, data.map_image, data.locations || []);
+            if (finalData && finalData.status === "success") {
+                setMessage(`✓ Synthesized '${finalData.node_name}' (${finalData.engine}).`);
+                if (finalData.topology && finalData.map_image) {
+                    onAnalysisComplete(
+                        finalData.topology,
+                        finalData.map_image,
+                        finalData.locations || [],
+                        finalData.parametric_svg
+                    );
                 }
                 setFiles(Array(8).fill(null));
+                setCustomNodeName("");
             } else {
-                setMessage(data.detail || "Upload failed.");
+                setMessage((finalData as any)?.detail || "Upload failed.");
             }
         } catch (err: any) {
-            clearInterval(stepTimer);
             console.error(err);
             setMessage(err.message || "VLA pipeline processing error.");
         } finally {
             setIsUploading(false);
             onBusyChange(false);
-            setTimeout(() => setCurrentStep(0), 4000);
+            setTimeout(() => {
+                setCurrentStep(0);
+                setStepStatusLabel("");
+            }, 3000);
         }
-    }, [files, isUploading, onAnalysisComplete, onBusyChange]);
+    }, [files, isUploading, customNodeName, selectedEngine, workspaceId, onAnalysisComplete, onBusyChange]);
 
-    // Auto-trigger when all 8 images are loaded
     useEffect(() => {
         if (uploadedCount >= 8 && !isUploading && !hasAutoTriggered.current) {
             hasAutoTriggered.current = true;
@@ -154,22 +179,37 @@ export default function NodeCaptureComponent({ onAnalysisComplete, onBusyChange 
 
     return (
         <div className="flex flex-col h-full gap-3">
-            {/* 360° Circular Radar / Compass Cockpit */}
-            <div className="relative w-full aspect-square max-w-[280px] mx-auto flex items-center justify-center my-2">
-                
-                {/* SVG Radar Compass Background */}
+            <div className="flex items-center gap-2">
+                <input
+                    type="text"
+                    value={customNodeName}
+                    onChange={(e) => setCustomNodeName(e.target.value)}
+                    disabled={isUploading}
+                    placeholder="Room Name (e.g. Main Lobby, Kitchen)..."
+                    className="flex-1 bg-slate-950/80 border border-slate-800 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-400"
+                />
+                {uploadedCount > 0 && !isUploading && (
+                    <button
+                        type="button"
+                        onClick={uploadNode}
+                        className="cyber-btn px-2.5 py-1.5 text-[10px] font-mono font-bold rounded-lg"
+                    >
+                        RUN ({uploadedCount}/8)
+                    </button>
+                )}
+            </div>
+
+            <div className="relative w-full aspect-square max-w-[280px] mx-auto flex items-center justify-center my-1">
                 <svg className="absolute inset-0 w-full h-full pointer-events-none text-slate-800" viewBox="0 0 280 280">
                     <circle cx="140" cy="140" r="130" fill="none" stroke="currentColor" strokeWidth="1" strokeDasharray="3 3" />
                     <circle cx="140" cy="140" r="95" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.6" />
                     <circle cx="140" cy="140" r="45" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.4" />
-                    
-                    {/* Reticle Axis Lines */}
+
                     <line x1="140" y1="10" x2="140" y2="270" stroke="currentColor" strokeWidth="1" strokeDasharray="2 2" opacity="0.4" />
                     <line x1="10" y1="140" x2="270" y2="140" stroke="currentColor" strokeWidth="1" strokeDasharray="2 2" opacity="0.4" />
                     <line x1="48" y1="48" x2="232" y2="232" stroke="currentColor" strokeWidth="0.5" opacity="0.2" />
                     <line x1="48" y1="232" x2="232" y2="48" stroke="currentColor" strokeWidth="0.5" opacity="0.2" />
 
-                    {/* Rotating Radar Sweep Line during Processing */}
                     {isUploading && (
                         <g className="radar-sweep">
                             <line x1="140" y1="140" x2="140" y2="15" stroke="#00FF9D" strokeWidth="2" strokeOpacity="0.8" />
@@ -185,7 +225,6 @@ export default function NodeCaptureComponent({ onAnalysisComplete, onBusyChange 
                     </defs>
                 </svg>
 
-                {/* Center: High-Tech Batch Upload Button */}
                 <label
                     className="absolute z-20 w-16 h-16 rounded-full cursor-pointer flex flex-col items-center justify-center transition-all bg-emerald-500/20 border-2 border-emerald-400 hover:bg-emerald-500/30 hover:scale-110 shadow-[0_0_20px_rgba(0,255,157,0.3)] group"
                     title="Batch upload all 8 directional photos (N → NW)"
@@ -200,7 +239,6 @@ export default function NodeCaptureComponent({ onAnalysisComplete, onBusyChange 
                     />
                 </label>
 
-                {/* 8 Directional Satellite Nodes */}
                 {directions.map((dir, i) => {
                     const angle = (i * 45 - 90) * (Math.PI / 180);
                     const radius = 98;
@@ -241,21 +279,25 @@ export default function NodeCaptureComponent({ onAnalysisComplete, onBusyChange 
                 })}
             </div>
 
-            {/* Ingestion Status & Step Progress */}
             {isUploading && currentStep > 0 ? (
                 <div className="rounded-xl p-3 bg-slate-900/90 border border-emerald-500/30">
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-center gap-1.5">
                             <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
                             <span className="font-mono font-bold uppercase text-xs text-emerald-400 tracking-wider">
-                                VLA Multi-Model Synthesis
+                                VLA Live Stream
                             </span>
                         </div>
                         <span className="text-[10px] font-mono text-slate-400">Step {currentStep}/3</span>
                     </div>
+                    {stepStatusLabel && (
+                        <div className="text-[10px] font-mono text-sky-400 mb-2 truncate">
+                            {stepStatusLabel}
+                        </div>
+                    )}
 
                     <div className="flex flex-col gap-2">
-                        {STEPS.map(step => {
+                        {steps.map(step => {
                             const isDone = currentStep > step.id;
                             const isActive = currentStep === step.id;
                             return (
@@ -284,8 +326,8 @@ export default function NodeCaptureComponent({ onAnalysisComplete, onBusyChange 
                 <div className="text-center font-mono text-xs">
                     {message ? (
                         <div className={`py-1.5 px-3 rounded-lg border ${
-                            message.startsWith("✓") 
-                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
+                            message.startsWith("✓")
+                                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
                                 : 'bg-red-500/10 border-red-500/30 text-red-400'
                         }`}>
                             {message}

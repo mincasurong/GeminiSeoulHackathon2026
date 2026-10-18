@@ -111,3 +111,56 @@ def test_chat_payload_defaults():
     payload = ChatPayload(query="Where is the exit?", node_name="lobby")
     assert payload.engine == "gemini"
     assert payload.history == []
+
+
+def test_room_geometry_preserves_materials_and_polygon():
+    node = SpatialNode(
+        node_name="Parametric Studio",
+        room_geometry={
+            "shape": "rectangular",
+            "approx_dimensions": "8m x 6m",
+            "flooring_material": "Oak parquet",
+            "wall_finish": "Matte white plaster",
+            "polygon_points": [[10.0, 10.0], [90.0, 10.0], [90.0, 90.0], [10.0, 90.0]],
+        },
+    )
+    assert node.room_geometry.flooring_material == "Oak parquet"
+    assert node.room_geometry.wall_finish == "Matte white plaster"
+    assert len(node.room_geometry.polygon_points) == 4
+
+
+def test_room_geometry_coerces_dict_approx_dimensions():
+    node = SpatialNode(
+        node_name="Event Venue Foyer",
+        room_geometry={
+            "shape": "rectangular",
+            "approx_dimensions": {"length_m": 6.8, "width_m": 5.4, "height_m": 2.8},
+            "flooring_material": {"type": "marble", "color": "grey"},
+            "polygon_points": [{"x": 12.0, "y": 15.0}, {"x": 88.0, "y": 15.0}, {"x": 88.0, "y": 85.0}],
+        },
+        static_anchors=[
+            {
+                "id": "main_counter",
+                "category": "Furniture",
+                "description": {"material": "brass", "finish": "polished"},
+                "image_indices": ["0", 1],
+                "bbox": {"ymin": 12, "xmin": 30, "ymax": 28, "xmax": 60},
+                "height_m": "2.2m",
+            }
+        ],
+        spatial_relations=[
+            {
+                "source": "main_counter",
+                "relation": "adjacent_to",
+                "target": "entrance",
+                "distance_estimate": 1.8,
+            }
+        ],
+    )
+    assert node.room_geometry.approx_dimensions == "6.8m x 5.4m x 2.8m"
+    assert "marble" in node.room_geometry.flooring_material
+    assert len(node.room_geometry.polygon_points) == 3
+    assert node.static_anchors[0].anchor_id == "main_counter"
+    assert node.static_anchors[0].height_m == 2.2
+    assert node.static_anchors[0].bbox == [12.0, 30.0, 28.0, 60.0]
+    assert node.spatial_relations[0].distance_estimate == "1.8m"
