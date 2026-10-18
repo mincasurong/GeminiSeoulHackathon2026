@@ -13,7 +13,7 @@ import SaasHeaderBar from "./components/SaasHeaderBar";
 import SpatialKpiStrip from "./components/SpatialKpiStrip";
 import SpatialEntityInspector from "./components/SpatialEntityInspector";
 import { useSpatialWorkspace } from "./lib/useSpatialWorkspace";
-import { Download, Compass, Cpu, Layers, Radar, Award } from "lucide-react";
+import { Download, Compass, Layers, Radar, Award } from "lucide-react";
 
 const FONT_SIZE_CLASS_MAP = {
   S: "text-xs",
@@ -66,7 +66,7 @@ export default function Home() {
 
   return (
     <div
-      className={`grid-bg min-h-screen flex flex-col transition-colors duration-200 ${FONT_SIZE_CLASS_MAP[fontSize]}`}
+      className={`grid-bg min-h-screen flex flex-col transition-colors duration-300 ${FONT_SIZE_CLASS_MAP[fontSize]}`}
     >
       <SaasHeaderBar
         selectedEngine={selectedEngine}
@@ -93,16 +93,21 @@ export default function Home() {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-4 flex flex-col gap-6">
-            <div className="hud-card rounded-2xl p-5">
-              <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-800/80">
+            <div className="hud-card rounded-2xl p-5 relative">
+              <div className="corner-bracket corner-tl" />
+              <div className="corner-bracket corner-tr" />
+              <div className="corner-bracket corner-bl" />
+              <div className="corner-bracket corner-br" />
+
+              <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
                 <div className="flex items-center gap-2">
-                  <Compass className="w-4 h-4 text-emerald-400" />
-                  <h2 className="font-sans font-semibold text-slate-100 text-sm">
+                  <Compass className="w-4 h-4 text-emerald-400" aria-hidden="true" />
+                  <h2 className="font-mono font-bold uppercase tracking-wider text-slate-100 text-sm">
                     360° Panoramic Ingestion
                   </h2>
                 </div>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  8 SECTORS (0°–315°)
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 font-bold">
+                  8 SECTORS
                 </span>
               </div>
 
@@ -114,65 +119,59 @@ export default function Home() {
               />
             </div>
 
-            {topology ? (
-              <SpatialEntityInspector
-                topology={topology}
-                locations={locations}
-                selectedObjectId={selectedObjectId}
-                onSelectObject={setSelectedObjectId}
-              />
-            ) : (
-              <div className="hud-card rounded-2xl p-5">
-                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-800">
-                  <Cpu className="w-4 h-4 text-sky-400" />
-                  <span className="font-sans font-semibold text-sky-400 text-xs uppercase tracking-wider">
-                    VLA Pipeline Architecture
-                  </span>
-                </div>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Upload 8 directional room photos to extract a 360° SLAM keypoint graph, synthesize a parametric 2D CAD floor plan, and generate ROS2 Nav2 trajectories.
-                </p>
-              </div>
-            )}
+            <SpatialEntityInspector
+              topology={topology}
+              locations={locations}
+              selectedObjectId={selectedObjectId}
+              onSelectObject={setSelectedObjectId}
+            />
           </div>
 
           <div className="lg:col-span-8 flex flex-col gap-6">
-            <div className="hud-card rounded-2xl overflow-hidden flex flex-col min-h-[520px]">
+            <div className="hud-card rounded-2xl overflow-hidden flex flex-col min-h-[520px] relative">
+              <div className="corner-bracket corner-tl" />
+              <div className="corner-bracket corner-tr" />
+              <div className="corner-bracket corner-bl" />
+              <div className="corner-bracket corner-br" />
+
               {topology ? (
                 <>
-                  <div className="px-5 py-3 flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 bg-slate-950/60">
+                  <div className="px-5 py-3 flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 bg-slate-950/75">
                     <div className="flex flex-wrap items-center gap-2.5">
-                      <Layers className="w-4 h-4 text-emerald-400" />
-                      <h2 className="font-sans font-semibold text-sm text-slate-100">
-                        {viewMode === "MAP" && "Orthographic 2D Blueprint & CAD Overlay"}
-                        {viewMode === "GRAPH" && "Visual SLAM Keypoint & Relational Graph"}
-                        {viewMode === "FLEET" && "Multi-Room Topological Fleet Graph"}
-                        {viewMode === "TWIN" && "3D Voxel & Parametric Wall Digital Twin"}
+                      <Layers className="w-4 h-4 text-emerald-400" aria-hidden="true" />
+                      <h2 className="font-mono font-bold uppercase tracking-wider text-sm text-slate-100">
+                        {viewMode === "MAP" && "Orthographic 2D Blueprint"}
+                        {viewMode === "GRAPH" && "Relational Semantic Mesh"}
+                        {viewMode === "FLEET" && "Multi-Room Fleet Topology"}
+                        {viewMode === "TWIN" && "3D Voxel Digital Twin"}
                       </h2>
+                      <span className="font-mono text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-bold">
+                        {topology.node_name}
+                      </span>
                       <button
                         type="button"
                         onClick={() => handleExportArtifact("json")}
-                        className="flex items-center gap-1 px-2 py-0.5 rounded-md font-mono font-semibold text-[10px] bg-slate-900 text-slate-300 hover:text-emerald-400 border border-slate-700/80 transition-colors cursor-pointer"
+                        className="flex items-center gap-1 px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-slate-800 text-slate-300 hover:text-emerald-400 hover:bg-slate-700 transition-all border border-slate-700 cursor-pointer"
                         title="Download full spatial topology JSON"
                       >
-                        <Download className="w-3 h-3" /> JSON
+                        <Download className="w-3 h-3" aria-hidden="true" /> JSON
                       </button>
                     </div>
 
-                    <div className="flex bg-slate-900 border border-slate-800 rounded-lg p-0.5 gap-0.5">
+                    <div className="flex bg-slate-900/90 border border-slate-700/80 rounded-xl p-1 gap-1">
                       {[
-                        { key: "MAP", label: "2D Blueprint" },
-                        { key: "GRAPH", label: "SLAM Graph" },
-                        { key: "FLEET", label: "Multi-Room" },
-                        { key: "TWIN", label: "3D Twin" },
+                        { key: "MAP", label: "2D MAP" },
+                        { key: "GRAPH", label: "SLAM MESH" },
+                        { key: "FLEET", label: "MULTI-ROOM" },
+                        { key: "TWIN", label: "3D TWIN" },
                       ].map((tab) => (
                         <button
                           key={tab.key}
                           type="button"
                           onClick={() => setViewMode(tab.key as any)}
-                          className={`px-3 py-1 rounded-md font-sans font-semibold transition-all text-xs cursor-pointer ${
+                          className={`px-3 py-1 rounded-lg font-mono font-bold transition-all text-xs tracking-wider cursor-pointer ${
                             viewMode === tab.key
-                              ? "bg-emerald-500 text-slate-950"
+                              ? "bg-emerald-400 text-slate-950 shadow-[0_0_14px_rgba(0,255,157,0.45)]"
                               : "text-slate-400 hover:text-slate-200"
                           }`}
                         >
@@ -219,20 +218,27 @@ export default function Home() {
                 </>
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center p-12 text-center min-h-[520px]">
-                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 mb-5">
-                    <Radar className="w-8 h-8" />
+                  <div className="relative mb-6">
+                    <div className="w-20 h-20 rounded-2xl flex items-center justify-center bg-emerald-500/10 border-2 border-dashed border-emerald-500/30 text-emerald-400 shadow-[0_0_30px_rgba(0,255,157,0.12)]">
+                      <Radar className="w-9 h-9" aria-hidden="true" />
+                    </div>
+                    <div className="absolute -inset-2 rounded-3xl border border-emerald-500/10 animate-ping" />
                   </div>
-                  <h3 className="font-sans font-semibold text-slate-200 text-base mb-1.5">
+                  <h3 className="font-mono font-bold uppercase tracking-wider text-slate-200 text-base mb-2">
                     Awaiting Spatial Telemetry
                   </h3>
-                  <p className="max-w-sm text-xs leading-relaxed text-slate-400">
+                  <p className="font-mono max-w-sm text-xs leading-relaxed text-slate-400">
                     Upload 8 sequential directional images on the left to initiate the 3-step VLA pipeline.
                   </p>
                 </div>
               )}
             </div>
 
-            <div className="hud-card rounded-2xl overflow-hidden">
+            <div className="hud-card rounded-2xl overflow-hidden relative">
+              <div className="corner-bracket corner-tl" />
+              <div className="corner-bracket corner-tr" />
+              <div className="corner-bracket corner-bl" />
+              <div className="corner-bracket corner-br" />
               <CommandBarComponent
                 topology={topology}
                 systemLogs={systemLogs}
@@ -245,11 +251,11 @@ export default function Home() {
         </div>
       </main>
 
-      <footer className="py-4 border-t border-slate-800/80 bg-slate-950/90">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-2">
+      <footer className="py-4 border-t border-slate-800 bg-slate-950/85">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between font-mono text-xs text-slate-500 gap-2">
           <div className="flex flex-wrap items-center gap-3">
-            <span className="flex items-center gap-1.5">
-              <Award className="w-3.5 h-3.5 text-amber-400" />
+            <span className="flex items-center gap-1.5 text-slate-400">
+              <Award className="w-3.5 h-3.5 text-amber-400" aria-hidden="true" />
               <span>SPATIAL_OS Cloud — Autonomous Spatial Intelligence &amp; Robotics Platform</span>
             </span>
             <span className="hidden sm:inline text-slate-700">&middot;</span>
@@ -257,12 +263,12 @@ export default function Home() {
               href="https://mincasurong.github.io"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-mono text-xs text-slate-300 hover:text-emerald-400 transition-colors underline decoration-emerald-500/40 underline-offset-4"
+              className="text-slate-300 hover:text-emerald-400 transition-colors underline decoration-emerald-500/40 underline-offset-4"
             >
               Developed by <strong className="text-emerald-400">m9g</strong>
             </a>
           </div>
-          <span className="font-mono text-[11px]">
+          <span>
             Powered by <strong className="text-emerald-400">v4 Argon SLAM</strong> &amp;{" "}
             <strong className="text-sky-400">3.8 Flash Vision</strong>
           </span>
