@@ -85,9 +85,32 @@ export function useSpatialWorkspace(initialWorkspaceId = "default") {
       try {
         const res = await fetch("/topology.json");
         if (res.ok) {
-          const sample = await res.json();
+          const sample: SpatialNode = await res.json();
           setTopology((prev) => prev || sample);
           setMapImage((prev) => prev || "/default_blueprint.png");
+          const fallbackLocs: ObjectLocation[] = [
+            ...(sample.static_anchors || [])
+              .filter((a) => Array.isArray(a.bbox) && a.bbox.length === 4)
+              .map((a) => ({
+                object_id: a.anchor_id,
+                ymin: a.bbox![0],
+                xmin: a.bbox![1],
+                ymax: a.bbox![2],
+                xmax: a.bbox![3],
+              })),
+            ...(sample.dynamic_objects || [])
+              .filter((d) => Array.isArray(d.bbox) && d.bbox.length === 4)
+              .map((d) => ({
+                object_id: d.object_id,
+                ymin: d.bbox![0],
+                xmin: d.bbox![1],
+                ymax: d.bbox![2],
+                xmax: d.bbox![3],
+              })),
+          ];
+          if (fallbackLocs.length > 0) {
+            setLocations((prev) => (prev.length > 0 ? prev : fallbackLocs));
+          }
         }
       } catch (offlineErr) {
         void offlineErr;

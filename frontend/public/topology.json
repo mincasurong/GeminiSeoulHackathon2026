@@ -1,8 +1,10 @@
 {
     "node_name": "Building Elevator Lobby and Stairwell",
     "room_geometry": {
-        "shape": "rectangular",
-        "approx_dimensions": "10m x 7m",
+        "shape": "recessed-alcove-rectangular",
+        "approx_dimensions": "10m x 7m x 2.8m",
+        "flooring_material": "Polished grey marble tiles with subtle veining",
+        "wall_finish": "Light travertine stone panels with brushed steel & brass trim",
         "center_description": "Polished grey marble floor with clear vantage point to elevator on North, Golden Door on East, and Staircase on West/South.",
         "perimeter_keypoints_order": [
             "kp_0_1_ne_corner",
@@ -13,6 +15,16 @@
             "kp_5_6_west_railing",
             "kp_6_7_nw_corner",
             "kp_7_0_elevator_frame"
+        ],
+        "polygon_points": [
+            [36.0, 8.0],
+            [65.5, 8.0],
+            [67.0, 26.0],
+            [89.5, 26.0],
+            [95.5, 84.0],
+            [5.0, 84.0],
+            [10.5, 26.0],
+            [35.0, 26.0]
         ]
     },
     "seam_keypoints": [
@@ -84,41 +96,51 @@
             "anchor_id": "floor_directory",
             "type": "wall-mounted sign",
             "cardinal_direction": "N",
-            "description": "A directory on a marble wall listing locations for floors 1 through 4.",
+            "description": "A directory and call panel on the central marble pillar between the two elevator doors.",
             "image_indices": [0],
-            "associated_keypoints": ["kp_7_0_elevator_frame"]
+            "associated_keypoints": ["kp_7_0_elevator_frame"],
+            "bbox": [22.0, 49.2, 30.5, 53.2],
+            "height_m": 1.5
         },
         {
             "anchor_id": "elevator",
             "type": "architectural feature",
             "cardinal_direction": "N",
-            "description": "An elevator with reflective metal doors set into a light grey marble wall.",
+            "description": "Twin stainless-steel elevators with reflective metal doors set into the North marble alcove.",
             "image_indices": [0, 1],
-            "associated_keypoints": ["kp_7_0_elevator_frame", "kp_0_1_ne_corner"]
+            "associated_keypoints": ["kp_7_0_elevator_frame", "kp_0_1_ne_corner"],
+            "bbox": [11.5, 39.8, 35.5, 62.5],
+            "height_m": 2.4
         },
         {
             "anchor_id": "golden_door",
             "type": "entrance",
             "cardinal_direction": "E",
-            "description": "A glass door with a golden frame leading into a reception or dining area.",
+            "description": "A double glass door with a brass-gold frame leading into the Vista reception and dining area.",
             "image_indices": [2, 3],
-            "associated_keypoints": ["kp_1_2_east_doorframe", "kp_2_3_se_wall"]
+            "associated_keypoints": ["kp_1_2_east_doorframe", "kp_2_3_se_wall"],
+            "bbox": [31.5, 66.8, 53.8, 86.2],
+            "height_m": 2.3
         },
         {
             "anchor_id": "reception_desk",
             "type": "heavy furniture",
             "cardinal_direction": "SE",
-            "description": "A marble reception counter located within the room behind the golden door.",
+            "description": "A dark wood and marble reception podium with a table lamp and open guest register book.",
             "image_indices": [3],
-            "associated_keypoints": ["kp_2_3_se_wall"]
+            "associated_keypoints": ["kp_2_3_se_wall"],
+            "bbox": [45.0, 78.0, 67.8, 86.0],
+            "height_m": 1.15
         },
         {
             "anchor_id": "staircase_structure",
             "type": "architectural feature",
             "cardinal_direction": "SW",
-            "description": "A staircase with white metal railings and dark grey steps connecting multiple floors.",
+            "description": "A multi-flight staircase with white metal railings and dark stone steps on the West wing.",
             "image_indices": [4, 5, 6, 7],
-            "associated_keypoints": ["kp_4_5_stairs_landing", "kp_5_6_west_railing"]
+            "associated_keypoints": ["kp_4_5_stairs_landing", "kp_5_6_west_railing"],
+            "bbox": [38.0, 8.5, 82.5, 43.5],
+            "height_m": 2.6
         }
     ],
     "dynamic_objects": [
@@ -126,17 +148,21 @@
             "object_id": "potted_plant",
             "type": "decor",
             "cardinal_direction": "SE",
-            "description": "A green indoor plant in a cylindrical grey pot near the golden door.",
+            "description": "A lush green indoor fiddle-leaf fig plant in a cylindrical grey planter in the Southeast corner.",
             "image_indices": [2, 3],
-            "relative_to_keypoint": "kp_1_2_east_doorframe"
+            "relative_to_keypoint": "kp_1_2_east_doorframe",
+            "bbox": [55.5, 82.5, 82.5, 92.8],
+            "height_m": 1.6
         },
         {
             "object_id": "vista_restaurant_sign",
             "type": "signage",
             "cardinal_direction": "NW",
-            "description": "A floor-standing black and white sign providing information about the Vista Restaurant on the 3rd floor.",
+            "description": "Wall-mounted directional signage on the Northwest alcove wall facing the lobby.",
             "image_indices": [7],
-            "relative_to_keypoint": "kp_6_7_nw_corner"
+            "relative_to_keypoint": "kp_6_7_nw_corner",
+            "bbox": [21.5, 36.0, 43.5, 39.5],
+            "height_m": 1.5
         }
     ],
     "spatial_relations": [

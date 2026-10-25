@@ -46,10 +46,34 @@ export default function InteriorMapComponent({
     const [isDispatching, setIsDispatching] = useState(false);
     const [showGrid, setShowGrid] = useState(true);
     const [useCadBlueprint, setUseCadBlueprint] = useState(false);
+    const [imgAspectRatio, setImgAspectRatio] = useState<string>("16 / 9");
 
     if (!mapImage) return null;
 
     const displayedImage = useCadBlueprint && parametricSvg ? parametricSvg : mapImage;
+
+    const effectiveLocations: ObjectLocation[] = (locations && locations.length > 0)
+        ? locations
+        : [
+            ...(topology.static_anchors || [])
+                .filter(a => Array.isArray(a.bbox) && a.bbox.length === 4)
+                .map(a => ({
+                    object_id: a.anchor_id,
+                    ymin: a.bbox![0],
+                    xmin: a.bbox![1],
+                    ymax: a.bbox![2],
+                    xmax: a.bbox![3],
+                })),
+            ...(topology.dynamic_objects || [])
+                .filter(d => Array.isArray(d.bbox) && d.bbox.length === 4)
+                .map(d => ({
+                    object_id: d.object_id,
+                    ymin: d.bbox![0],
+                    xmin: d.bbox![1],
+                    ymax: d.bbox![2],
+                    xmax: d.bbox![3],
+                })),
+        ];
 
     const getImageIndices = (objectId: string): number[] => {
         const anchor = topology.static_anchors?.find(a => a.anchor_id === objectId);
@@ -93,11 +117,11 @@ export default function InteriorMapComponent({
     };
 
     const dispatchToHardware = async () => {
-        if (!locations || locations.length === 0) return;
+        if (!effectiveLocations || effectiveLocations.length === 0) return;
         setIsDispatching(true);
         onAddSystemLog("Initiating ROS2 Nav2 FollowWaypoints sequence...");
 
-        const waypoints = locations.map(loc => {
+        const waypoints = effectiveLocations.map(loc => {
             const centerX = (loc.xmin + loc.xmax) / 2;
             const centerY = (loc.ymin + loc.ymax) / 2;
             const metricX = Number((centerX * 0.1).toFixed(3));
@@ -139,7 +163,7 @@ export default function InteriorMapComponent({
         }
     };
 
-    const selectedLoc = locations.find(l => l.object_id === selectedObjectId);
+    const selectedLoc = effectiveLocations.find(l => l.object_id === selectedObjectId);
     const selectedMetricX = selectedLoc ? (((selectedLoc.xmin + selectedLoc.xmax) / 2) * 0.1).toFixed(2) : null;
     const selectedMetricY = selectedLoc ? (((selectedLoc.ymin + selectedLoc.ymax) / 2) * 0.1).toFixed(2) : null;
 
@@ -228,108 +252,133 @@ export default function InteriorMapComponent({
                 </div>
             )}
 
-            <div className="relative w-full min-h-[460px] flex items-center justify-center">
-                <img
-                    src={displayedImage}
-                    alt="Orthographic Floor Plan Blueprint"
-                    className="w-full h-[460px] object-contain select-none pointer-events-none"
-                />
+            <div className="relative w-full min-h-[520px] sm:min-h-[580px] flex items-center justify-center p-2 sm:p-4 bg-[#030712]">
+                <div
+                    className="relative w-full mx-auto overflow-hidden rounded-xl border border-slate-800/80 shadow-2xl"
+                    style={{
+                        aspectRatio: useCadBlueprint ? "1 / 1" : imgAspectRatio,
+                        maxWidth: useCadBlueprint ? "580px" : "100%",
+                    }}
+                >
+                    <img
+                        src={displayedImage}
+                        alt="Orthographic Floor Plan Blueprint"
+                        onLoad={(e) => {
+                            const nw = e.currentTarget.naturalWidth;
+                            const nh = e.currentTarget.naturalHeight;
+                            if (nw > 0 && nh > 0) {
+                                setImgAspectRatio(`${nw} / ${nh}`);
+                            }
+                        }}
+                        className="w-full h-full block object-fill select-none pointer-events-none"
+                    />
 
-                {showGrid && (
-                    <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-25" viewBox="0 0 100 100" preserveAspectRatio="none">
-                        <defs>
-                            <pattern id="smallGrid" width="5" height="5" patternUnits="userSpaceOnUse">
-                                <path d="M 5 0 L 0 0 0 5" fill="none" stroke="#00FF9D" strokeWidth="0.2" />
-                            </pattern>
-                            <pattern id="mainGrid" width="20" height="20" patternUnits="userSpaceOnUse">
-                                <rect width="20" height="20" fill="url(#smallGrid)" />
-                                <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#38BDF8" strokeWidth="0.5" />
-                            </pattern>
-                        </defs>
-                        <rect width="100" height="100" fill="url(#mainGrid)" />
-                        <circle cx="50" cy="50" r="1.5" fill="#00FF9D" opacity="0.8" />
-                        <line x1="46" y1="50" x2="54" y2="50" stroke="#00FF9D" strokeWidth="0.3" />
-                        <line x1="50" y1="46" x2="50" y2="54" stroke="#00FF9D" strokeWidth="0.3" />
-                    </svg>
-                )}
+                    {showGrid && (
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-25" viewBox="0 0 100 100" preserveAspectRatio="none">
+                            <defs>
+                                <pattern id="smallGrid" width="5" height="5" patternUnits="userSpaceOnUse">
+                                    <path d="M 5 0 L 0 0 0 5" fill="none" stroke="#00FF9D" strokeWidth="0.2" />
+                                </pattern>
+                                <pattern id="mainGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+                                    <rect width="20" height="20" fill="url(#smallGrid)" />
+                                    <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#38BDF8" strokeWidth="0.5" />
+                                </pattern>
+                            </defs>
+                            <rect width="100" height="100" fill="url(#mainGrid)" />
+                            <circle cx="50" cy="50" r="1.5" fill="#00FF9D" opacity="0.8" />
+                            <line x1="46" y1="50" x2="54" y2="50" stroke="#00FF9D" strokeWidth="0.3" />
+                            <line x1="50" y1="46" x2="50" y2="54" stroke="#00FF9D" strokeWidth="0.3" />
+                        </svg>
+                    )}
 
-                {locations?.map((loc, idx) => {
-                    const isHovered = hoveredId === loc.object_id;
-                    const isSelected = selectedObjectId === loc.object_id;
-                    const label = getObjectLabel(loc.object_id);
-                    const hasSource = getImageIndices(loc.object_id).length > 0;
-                    const isAnchor = isStaticAnchor(loc.object_id);
+                    {effectiveLocations?.map((loc, idx) => {
+                        const isHovered = hoveredId === loc.object_id;
+                        const isSelected = selectedObjectId === loc.object_id;
+                        const label = getObjectLabel(loc.object_id);
+                        const hasSource = getImageIndices(loc.object_id).length > 0;
+                        const isAnchor = isStaticAnchor(loc.object_id);
 
-                    const borderColor = isSelected
-                        ? '#00FF9D'
-                        : isHovered
-                        ? '#38BDF8'
-                        : isAnchor
-                        ? '#3B82F6'
-                        : '#10B981';
+                        const borderColor = isSelected
+                            ? '#00FF9D'
+                            : isHovered
+                            ? '#38BDF8'
+                            : isAnchor
+                            ? '#3B82F6'
+                            : '#10B981';
 
-                    return (
-                        <div
-                            key={`${loc.object_id}-${idx}`}
-                            onMouseEnter={() => setHoveredId(loc.object_id)}
-                            onMouseLeave={() => setHoveredId(null)}
-                            onClick={(e) => { e.stopPropagation(); handleObjectClick(loc.object_id); }}
-                            className="absolute cursor-pointer transition-all duration-150 group"
-                            style={{
-                                top: `${Math.max(1, Math.min(96, loc.ymin))}%`,
-                                left: `${Math.max(1, Math.min(96, loc.xmin))}%`,
-                                width: `${Math.max(3, Math.min(100 - loc.xmin, loc.xmax - loc.xmin))}%`,
-                                height: `${Math.max(3, Math.min(100 - loc.ymin, loc.ymax - loc.ymin))}%`,
-                                border: `2px solid ${borderColor}`,
-                                background: isSelected
-                                    ? 'rgba(0, 255, 157, 0.25)'
-                                    : isHovered
-                                    ? 'rgba(56, 189, 248, 0.2)'
-                                    : isAnchor
-                                    ? 'rgba(59, 130, 246, 0.08)'
-                                    : 'rgba(16, 185, 129, 0.08)',
-                                boxShadow: isSelected
-                                    ? '0 0 24px rgba(0, 255, 157, 0.7), inset 0 0 12px rgba(0, 255, 157, 0.3)'
-                                    : isHovered
-                                    ? '0 0 16px rgba(56, 189, 248, 0.6)'
-                                    : 'none',
-                                borderRadius: '4px',
-                                zIndex: isSelected || isHovered ? 25 : 10,
-                            }}
-                        >
-                            {isSelected && (
-                                <>
-                                    <div className="corner-bracket corner-tl" />
-                                    <div className="corner-bracket corner-tr" />
-                                    <div className="corner-bracket corner-bl" />
-                                    <div className="corner-bracket corner-br" />
-                                </>
-                            )}
+                        const clampedTop = Math.max(0.5, Math.min(96, loc.ymin));
+                        const clampedLeft = Math.max(0.5, Math.min(96, loc.xmin));
+                        const clampedWidth = Math.max(3, Math.min(100 - clampedLeft, loc.xmax - loc.xmin));
+                        const clampedHeight = Math.max(3, Math.min(100 - clampedTop, loc.ymax - loc.ymin));
 
-                            {(isHovered || isSelected) && (
+                        return (
+                            <div
+                                key={`${loc.object_id}-${idx}`}
+                                onMouseEnter={() => setHoveredId(loc.object_id)}
+                                onMouseLeave={() => setHoveredId(null)}
+                                onClick={(e) => { e.stopPropagation(); handleObjectClick(loc.object_id); }}
+                                className="absolute cursor-pointer transition-all duration-150 group"
+                                style={{
+                                    top: `${clampedTop}%`,
+                                    left: `${clampedLeft}%`,
+                                    width: `${clampedWidth}%`,
+                                    height: `${clampedHeight}%`,
+                                    border: `2px solid ${borderColor}`,
+                                    background: isSelected
+                                        ? 'rgba(0, 255, 157, 0.24)'
+                                        : isHovered
+                                        ? 'rgba(56, 189, 248, 0.20)'
+                                        : isAnchor
+                                        ? 'rgba(59, 130, 246, 0.10)'
+                                        : 'rgba(16, 185, 129, 0.12)',
+                                    boxShadow: isSelected
+                                        ? '0 0 24px rgba(0, 255, 157, 0.7), inset 0 0 12px rgba(0, 255, 157, 0.3)'
+                                        : isHovered
+                                        ? '0 0 16px rgba(56, 189, 248, 0.6)'
+                                        : '0 0 8px rgba(15, 23, 42, 0.45)',
+                                    borderRadius: '4px',
+                                    zIndex: isSelected || isHovered ? 25 : 10,
+                                }}
+                            >
+                                {isSelected && (
+                                    <>
+                                        <div className="corner-bracket corner-tl" />
+                                        <div className="corner-bracket corner-tr" />
+                                        <div className="corner-bracket corner-bl" />
+                                        <div className="corner-bracket corner-br" />
+                                    </>
+                                )}
+
                                 <div
-                                    className="absolute -top-3.5 left-0 px-1.5 py-0.2 rounded text-[9px] font-mono font-bold truncate max-w-full pointer-events-none shadow-md"
+                                    className="absolute -top-4 left-0 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold truncate max-w-[160px] pointer-events-none shadow-md transition-opacity"
                                     style={{
-                                        background: isSelected ? '#00FF9D' : '#38BDF8',
-                                        color: '#020617',
+                                        background: isSelected
+                                            ? '#00FF9D'
+                                            : isHovered
+                                            ? '#38BDF8'
+                                            : isAnchor
+                                            ? 'rgba(30, 58, 138, 0.92)'
+                                            : 'rgba(6, 78, 59, 0.92)',
+                                        color: isSelected || isHovered ? '#020617' : '#e2e8f0',
+                                        border: isSelected || isHovered ? 'none' : `1px solid ${borderColor}`,
                                     }}
                                 >
                                     {loc.object_id}
                                 </div>
-                            )}
 
-                            {(isHovered || isSelected) && (
-                                <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2.5 py-1 rounded-lg whitespace-nowrap text-[10px] font-mono font-bold z-30 bg-slate-900/95 border border-slate-700 text-slate-100 shadow-xl">
-                                    {hasSource && <Eye className="w-3 h-3 text-emerald-400" />}
-                                    <span>{label}</span>
-                                    <span className="text-slate-500">
-                                        ({(((loc.xmin + loc.xmax) / 2) * 0.1).toFixed(1)}m, {(((loc.ymin + loc.ymax) / 2) * 0.1).toFixed(1)}m)
-                                    </span>
-                                </div>
-                            )}
-                        </div>
-                    );
-                })}
+                                {(isHovered || isSelected) && (
+                                    <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2.5 py-1 rounded-lg whitespace-nowrap text-[10px] font-mono font-bold z-30 bg-slate-900/95 border border-slate-700 text-slate-100 shadow-xl">
+                                        {hasSource && <Eye className="w-3 h-3 text-emerald-400" />}
+                                        <span>{label}</span>
+                                        <span className="text-slate-400">
+                                            ({(((loc.xmin + loc.xmax) / 2) * 0.1).toFixed(1)}m, {(((loc.ymin + loc.ymax) / 2) * 0.1).toFixed(1)}m)
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
             </div>
 
             {viewingSource && sourceImages.length > 0 && (

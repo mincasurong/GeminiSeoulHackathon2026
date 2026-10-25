@@ -126,7 +126,7 @@ export default function Home() {
       )}
 
       {stage === "main" && (
-        <main className="max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 flex-1 flex flex-col gap-5">
+        <main className="max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 flex-1 flex flex-col gap-5">
           <div className="grid grid-cols-3 gap-2 p-1.5 bg-slate-900/90 rounded-2xl border-2 border-slate-800 max-w-xl mx-auto w-full">
             <button
               type="button"
@@ -219,7 +219,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="relative w-full flex-1 bg-slate-950">
+              <div className="relative w-full min-h-[580px] sm:min-h-[640px] flex-1 bg-slate-950">
                 {topology && viewMode === "MAP" && mapImage && (
                   <InteriorMapComponent
                     mapImage={mapImage}
@@ -240,6 +240,7 @@ export default function Home() {
                   <GraphVisualizerComponent
                     workspaceId={workspaceId}
                     activeNodeName={topology.node_name}
+                    activeTopology={topology}
                     onNodeSelect={handleSelectFleetNode}
                   />
                 )}
