@@ -73,9 +73,13 @@ def build_birds_eye_prompt(layout_text: str) -> str:
 
 def build_localization_prompt(objects_list: str) -> str:
     return (
-        "Analyze this 2D top-down floor plan blueprint image.\n"
-        "Locate each of the following spatial entities on the map and return their percentage-based bounding box coordinates:\n\n"
+        "Analyze this 2D top-down floor plan blueprint image carefully.\n"
+        "Visually detect each of the following spatial entities on the rendered floor plan and return their tight percentage-based bounding box coordinates (0.0 to 100.0 scale, NOT 0 to 1000):\n\n"
         f"Entities to locate:\n{objects_list}\n\n"
+        "Calibration guidelines:\n"
+        "- Measure coordinates strictly as percentages of the full image width (xmin, xmax: 0.0 = left edge, 100.0 = right edge) and height (ymin, ymax: 0.0 = top edge, 100.0 = bottom edge).\n"
+        "- Align each bounding box tightly around the visible architectural feature or furniture item in the rendered blueprint.\n"
+        "- Use the cardinal sector hint (N=top, E=right, S=bottom, W=left) to disambiguate similar fixtures.\n\n"
         "Return a STRICT JSON array where each element contains:\n"
         '- "object_id": string (must match the requested entity ID exactly)\n'
         '- "ymin": number between 0.0 and 100.0 (percentage from top edge)\n'

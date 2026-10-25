@@ -1,3 +1,4 @@
+import uuid
 from fastapi.testclient import TestClient
 from main import app
 
@@ -17,6 +18,16 @@ def test_health_endpoint():
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "healthy"
+
+    healthz_res = client.get("/healthz")
+    assert healthz_res.status_code == 200
+    assert healthz_res.json()["status"] == "healthy"
+
+    cfg_res = client.get("/api/config")
+    assert cfg_res.status_code == 200
+    cfg = cfg_res.json()
+    assert cfg["defaultEngine"] == "gemini-3.8-flash"
+    assert "gcpProjectId" in cfg
 
 
 def test_engines_endpoint():
@@ -39,25 +50,31 @@ def test_graph_endpoint_empty():
     assert len(data["nodes"]) >= 1
     first = data["nodes"][0]
     assert first.get("parametric_svg", "").startswith("data:image/svg+xml;base64,")
-    assert len(first.get("locations", [])) >= 1
+    locations = first.get("locations", [])
+    assert len(locations) >= 7
+    loc_by_id = {loc["object_id"]: loc for loc in locations}
+    assert "elevator" in loc_by_id
+    assert loc_by_id["elevator"]["ymin"] == 11.5
+    assert loc_by_id["elevator"]["xmin"] == 39.8
 
 
 def test_workspace_and_tier_switching():
-    res = client.get("/api/workspace?workspace_id=test_tenant")
+    tenant_id = f"test_tenant_{uuid.uuid4().hex[:8]}"
+    res = client.get(f"/api/workspace?workspace_id={tenant_id}")
     assert res.status_code == 200
     ws = res.json()
-    assert ws["workspace_id"] == "test_tenant"
+    assert ws["workspace_id"] == tenant_id
     assert ws["tier"] == "free"
 
     unpaid_res = client.post(
         "/api/workspace/tier",
-        json={"workspace_id": "test_tenant", "tier": "enterprise", "user_email": "user@example.com"},
+        json={"workspace_id": tenant_id, "tier": "enterprise", "user_email": "user@example.com"},
     )
     assert unpaid_res.status_code == 402
 
     admin_tier_res = client.post(
         "/api/workspace/tier",
-        json={"workspace_id": "test_tenant", "tier": "enterprise", "user_email": "produsoup@gmail.com"},
+        json={"workspace_id": tenant_id, "tier": "enterprise", "user_email": "produsoup@gmail.com"},
     )
     assert admin_tier_res.status_code == 200
     updated = admin_tier_res.json()

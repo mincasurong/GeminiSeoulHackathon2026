@@ -9,6 +9,7 @@ from google.genai import types
 from dotenv import load_dotenv
 
 from model_config import (
+    MODEL_FLASH,
     MODEL_TOPOLOGY,
     MODEL_LAYOUT,
     MODEL_IMAGE,
@@ -75,6 +76,35 @@ DIRECTION_PRESETS = {
 class VLAService:
 
     @staticmethod
+    def _generate_content(
+        *,
+        model: str,
+        contents: Any,
+        config: Optional[types.GenerateContentConfig] = None,
+        fallback_model: Optional[str] = None,
+    ) -> Any:
+        if not client:
+            raise ValueError("GenAI client not initialized. Ensure GOOGLE_API_KEY is configured.")
+        try:
+            return client.models.generate_content(
+                model=model,
+                contents=contents,
+                config=config,
+            )
+        except Exception as primary_err:
+            if fallback_model and fallback_model != model:
+                logger.warning(
+                    f"Primary Gemini model '{model}' failed ({primary_err}); "
+                    f"falling back to '{fallback_model}'."
+                )
+                return client.models.generate_content(
+                    model=fallback_model,
+                    contents=contents,
+                    config=config,
+                )
+            raise
+
+    @staticmethod
     def extract_topology(
         gemini_images: List[Dict[str, str]],
         default_node_name: str,
@@ -98,10 +128,11 @@ class VLAService:
         )
 
         logger.info(f"Extracting SLAM keypoints & relational topology using {active_model}...")
-        response = client.models.generate_content(
+        response = VLAService._generate_content(
             model=active_model,
             contents=parts,
             config=config,
+            fallback_model=MODEL_FLASH,
         )
 
         vla_result = _clean_and_parse_json(response.text)
@@ -142,7 +173,7 @@ class VLAService:
         )
 
         logger.info(f"Generating realistic layout description using {MODEL_LAYOUT}...")
-        response = client.models.generate_content(
+        response = VLAService._generate_content(
             model=MODEL_LAYOUT,
             contents=parts,
             config=config,
@@ -161,7 +192,7 @@ class VLAService:
         prompt = build_birds_eye_prompt(layout_text)
 
         logger.info(f"Synthesizing photorealistic 2D floor plan using {MODEL_IMAGE}...")
-        response = client.models.generate_content(
+        response = VLAService._generate_content(
             model=MODEL_IMAGE,
             contents=prompt,
             config=types.GenerateContentConfig(
@@ -192,19 +223,27 @@ class VLAService:
             all_items.append({
                 "id": a.get("anchor_id", ""),
                 "type": a.get("type", ""),
+                "direction": a.get("cardinal_direction", ""),
+                "description": a.get("description", ""),
                 "indices": a.get("image_indices", []),
             })
         for d in topology.get("dynamic_objects", []):
             all_items.append({
                 "id": d.get("object_id", ""),
                 "type": d.get("type", ""),
+                "direction": d.get("cardinal_direction", ""),
+                "description": d.get("description", ""),
                 "indices": d.get("image_indices", []),
             })
 
         if not all_items:
             return []
 
-        objects_list = "\n".join(f"- {item['id']} ({item['type']})" for item in all_items if item["id"])
+        objects_list = "\n".join(
+            f"- {item['id']} ({item['type']}, sector={item['direction'] or 'center'}): {item['description']}"
+            for item in all_items
+            if item["id"]
+        )
         prompt = build_localization_prompt(objects_list)
         locations_result: List[Dict[str, Any]] = []
 
@@ -218,12 +257,13 @@ class VLAService:
                 prompt,
             ]
 
-            response = client.models.generate_content(
+            response = VLAService._generate_content(
                 model=MODEL_LOCALIZATION,
                 contents=parts,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
                     temperature=0.1,
+                    thinking_config=types.ThinkingConfig(thinking_budget=512),
                 ),
             )
 
@@ -248,10 +288,22 @@ class VLAService:
                 raw_ymax = float(loc.get("ymax", 0))
                 raw_xmax = float(loc.get("xmax", 0))
 
-                ymin = max(2.0, min(90.0, min(raw_ymin, raw_ymax)))
-                xmin = max(2.0, min(90.0, min(raw_xmin, raw_xmax)))
-                ymax = max(ymin + 5.0, min(98.0, max(raw_ymin, raw_ymax)))
-                xmax = max(xmin + 5.0, min(98.0, max(raw_xmin, raw_xmax)))
+                max_coord = max(abs(raw_ymin), abs(raw_xmin), abs(raw_ymax), abs(raw_xmax))
+                if max_coord > 100.0:
+                    raw_ymin /= 10.0
+                    raw_xmin /= 10.0
+                    raw_ymax /= 10.0
+                    raw_xmax /= 10.0
+                elif 0.0 < max_coord <= 1.0:
+                    raw_ymin *= 100.0
+                    raw_xmin *= 100.0
+                    raw_ymax *= 100.0
+                    raw_xmax *= 100.0
+
+                ymin = max(1.0, min(94.0, min(raw_ymin, raw_ymax)))
+                xmin = max(1.0, min(94.0, min(raw_xmin, raw_xmax)))
+                ymax = max(ymin + 3.0, min(99.0, max(raw_ymin, raw_ymax)))
+                xmax = max(xmin + 3.0, min(99.0, max(raw_xmin, raw_xmax)))
 
                 sanitized_locations.append({
                     "object_id": oid,
@@ -347,13 +399,14 @@ class VLAService:
 
         parts.append(build_chat_prompt(topology, conv_text, query))
 
-        response = client.models.generate_content(
+        response = VLAService._generate_content(
             model=active_model,
             contents=parts,
             config=types.GenerateContentConfig(
                 temperature=0.3,
                 thinking_config=types.ThinkingConfig(thinking_budget=512),
             ),
+            fallback_model=MODEL_FLASH,
         )
         return response.text or "I could not process the spatial query."
 
@@ -372,7 +425,7 @@ class VLAService:
         active_model = resolve_engine_model(engine, MODEL_PLANNER)
         prompt = build_planner_prompt(nodes, edges, context_data, current_node, user_query)
 
-        response = client.models.generate_content(
+        response = VLAService._generate_content(
             model=active_model,
             contents=prompt,
             config=types.GenerateContentConfig(
@@ -380,5 +433,6 @@ class VLAService:
                 temperature=0.1,
                 thinking_config=types.ThinkingConfig(thinking_budget=512),
             ),
+            fallback_model=MODEL_FLASH,
         )
         return _clean_and_parse_json(response.text)

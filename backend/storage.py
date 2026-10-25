@@ -69,10 +69,21 @@ def is_admin_email(email: Optional[str]) -> bool:
     return email.strip().lower() in ADMIN_EMAILS
 
 
+_cached_gcp_token: Optional[str] = None
+_gcp_token_expires_at: float = 0.0
+_metadata_unavailable_until: float = 0.0
+
+
 def _get_gcp_access_token() -> Optional[str]:
+    global _cached_gcp_token, _gcp_token_expires_at, _metadata_unavailable_until
     env_token = os.environ.get("GCP_ACCESS_TOKEN")
     if env_token:
         return env_token
+    now = time.time()
+    if _cached_gcp_token and now < _gcp_token_expires_at:
+        return _cached_gcp_token
+    if now < _metadata_unavailable_until:
+        return None
     req = urllib.request.Request(
         "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token",
         headers={"Metadata-Flavor": "Google"},
@@ -81,8 +92,14 @@ def _get_gcp_access_token() -> Optional[str]:
         with urllib.request.urlopen(req, timeout=1.5) as resp:
             if resp.status == 200:
                 data = json.loads(resp.read().decode("utf-8"))
-                return data.get("access_token")
+                token = data.get("access_token")
+                expires_in = float(data.get("expires_in", 3600))
+                if token:
+                    _cached_gcp_token = token
+                    _gcp_token_expires_at = now + max(60.0, expires_in - 60.0)
+                return token
     except Exception:
+        _metadata_unavailable_until = now + 300.0
         return None
     return None
 
@@ -260,7 +277,10 @@ class WorkspaceStore:
         self._init_db()
 
     def _connect(self) -> sqlite3.Connection:
-        return sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=5.0)
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
+        return conn
 
     def _init_db(self) -> None:
         try:

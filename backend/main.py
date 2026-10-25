@@ -8,7 +8,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from contextlib import asynccontextmanager
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 import networkx as nx
 import uvicorn
@@ -69,9 +69,14 @@ def _sync_legacy_globals(workspace_id: str = "default") -> None:
 
 def _seed_default_sample_topology(workspace_id: str = "default") -> None:
     store.ensure_workspace(workspace_id)
-    if store.node_data.get(workspace_id):
-        _sync_legacy_globals("default")
-        return
+    existing_nodes = store.node_data.get(workspace_id, {})
+    default_node_name = "Building Elevator Lobby and Stairwell"
+    if existing_nodes:
+        existing_sample = existing_nodes.get(default_node_name)
+        anchors = (existing_sample or {}).get("static_anchors") or []
+        if not existing_sample or (anchors and anchors[0].get("bbox")):
+            _sync_legacy_globals("default")
+            return
 
     possible_paths = [
         os.path.join(os.path.dirname(__file__), "out", "topology.json"),
@@ -84,11 +89,12 @@ def _seed_default_sample_topology(workspace_id: str = "default") -> None:
             try:
                 with open(p, "r", encoding="utf-8") as f:
                     sample = json.load(f)
-                node_name = sample.get("node_name", "Building Elevator Lobby and Stairwell")
+                node_name = sample.get("node_name", default_node_name)
                 rg = sample.setdefault("room_geometry", {})
                 rg.setdefault("flooring_material", "Polished grey marble tiles with subtle veining")
                 rg.setdefault("wall_finish", "Light travertine stone panels with brushed steel & brass trim")
-                rg["polygon_points"] = compute_polygon_from_keypoints(sample)
+                if not rg.get("polygon_points"):
+                    rg["polygon_points"] = compute_polygon_from_keypoints(sample)
                 locs = derive_default_locations(sample)
                 param_svg = generate_parametric_svg_data_url(sample, locs)
                 default_map_img = "/default_blueprint.png"
@@ -182,12 +188,21 @@ def get_runtime_config():
     return {
         "version": "4.0.0",
         "service": "SPATIAL_OS Cloud",
+        "gcpProjectId": GCP_PROJECT_ID,
+        "defaultEngine": "gemini-3.8-flash",
         "googleClientId": (
             os.environ.get("GOOGLE_CLIENT_ID")
             or os.environ.get("NEXT_PUBLIC_GOOGLE_CLIENT_ID")
             or DEFAULT_GOOGLE_CLIENT_ID
         ),
     }
+
+
+def _fetch_json_url(url_or_req, timeout: float = 5.0) -> Optional[Dict[str, Any]]:
+    with urllib.request.urlopen(url_or_req, timeout=timeout) as resp:
+        if resp.status == 200:
+            return json.loads(resp.read().decode("utf-8"))
+    return None
 
 
 @app.post("/api/auth/google/verify", tags=["Authentication"])
@@ -199,12 +214,11 @@ async def verify_google_auth(payload: GoogleAuthVerifyPayload):
     if payload.idToken:
         try:
             url = f"https://oauth2.googleapis.com/tokeninfo?id_token={urllib.parse.quote(payload.idToken)}"
-            with urllib.request.urlopen(url, timeout=5) as resp:
-                if resp.status == 200:
-                    token_info = json.loads(resp.read().decode("utf-8"))
-                    verified_email = token_info.get("email") or verified_email
-                    verified_name = token_info.get("name") or token_info.get("given_name") or verified_name
-                    verified_picture = token_info.get("picture") or verified_picture
+            token_info = await asyncio.to_thread(_fetch_json_url, url, 5.0)
+            if token_info:
+                verified_email = token_info.get("email") or verified_email
+                verified_name = token_info.get("name") or token_info.get("given_name") or verified_name
+                verified_picture = token_info.get("picture") or verified_picture
         except Exception as e:
             logger.warning(f"Google id_token verification fallback: {e}")
 
@@ -214,12 +228,11 @@ async def verify_google_auth(payload: GoogleAuthVerifyPayload):
                 "https://www.googleapis.com/oauth2/v3/userinfo",
                 headers={"Authorization": f"Bearer {payload.accessToken}"},
             )
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                if resp.status == 200:
-                    user_info = json.loads(resp.read().decode("utf-8"))
-                    verified_email = user_info.get("email") or verified_email
-                    verified_name = user_info.get("name") or user_info.get("given_name") or verified_name
-                    verified_picture = user_info.get("picture") or verified_picture
+            user_info = await asyncio.to_thread(_fetch_json_url, req, 5.0)
+            if user_info:
+                verified_email = user_info.get("email") or verified_email
+                verified_name = user_info.get("name") or user_info.get("given_name") or verified_name
+                verified_picture = user_info.get("picture") or verified_picture
         except Exception as e:
             logger.warning(f"Google access_token userinfo fallback: {e}")
 
@@ -324,6 +337,7 @@ async def admin_update_user_tier(payload: AdminUserTierUpdatePayload):
 
 
 @app.get("/health", tags=["System"])
+@app.get("/healthz", tags=["System"])
 def health_check():
     return {"status": "healthy", "nodes_count": len(session_graph.nodes())}
 
@@ -438,7 +452,7 @@ async def _read_uploaded_images(images: List[UploadFile], workspace_id: str) -> 
     return result
 
 
-def _run_vla_pipeline(
+async def _run_vla_pipeline(
     gemini_images: List[Dict[str, str]],
     node_name: str,
     engine: str,
@@ -451,8 +465,11 @@ def _run_vla_pipeline(
 
     yield {"step": 1, "status": "running", "label": "Step 1/3: Extracting SLAM keypoints & parametric topology..."}
 
-    actual_name, topology = VLAService.extract_topology(
-        gemini_images, node_name, engine=effective_engine
+    actual_name, topology = await asyncio.to_thread(
+        VLAService.extract_topology,
+        gemini_images,
+        node_name,
+        effective_engine,
     )
     rg = topology.setdefault("room_geometry", {})
     rg["polygon_points"] = compute_polygon_from_keypoints(topology)
@@ -468,7 +485,9 @@ def _run_vla_pipeline(
     }
 
     try:
-        map_image = VLAService.generate_birds_eye_view(gemini_images, topology)
+        map_image = await asyncio.to_thread(
+            VLAService.generate_birds_eye_view, gemini_images, topology
+        )
     except Exception as e:
         logger.warning(f"[Step 2/3] Fallback to Parametric CAD SVG: {e}")
         map_image = parametric_svg
@@ -478,9 +497,23 @@ def _run_vla_pipeline(
     locations = initial_locations
     if map_image.startswith("data:image/png") or map_image.startswith("data:image/jpeg"):
         try:
-            locations = VLAService.locate_objects_in_map(map_image, topology)
+            locations = await asyncio.to_thread(
+                VLAService.locate_objects_in_map, map_image, topology
+            )
         except Exception as e:
             logger.warning(f"[Step 3/3] Fallback to parametric bounds: {e}")
+
+    loc_by_id = {loc["object_id"]: loc for loc in locations if "object_id" in loc}
+    for a in topology.get("static_anchors", []):
+        aid = a.get("anchor_id")
+        if aid in loc_by_id:
+            l = loc_by_id[aid]
+            a["bbox"] = [l["ymin"], l["xmin"], l["ymax"], l["xmax"]]
+    for d in topology.get("dynamic_objects", []):
+        oid = d.get("object_id")
+        if oid in loc_by_id:
+            l = loc_by_id[oid]
+            d["bbox"] = [l["ymin"], l["xmin"], l["ymax"], l["xmax"]]
 
     parametric_svg = generate_parametric_svg_data_url(topology, locations)
     store.save_node(
@@ -518,7 +551,7 @@ async def upload_node(
     gemini_images = await _read_uploaded_images(images, workspace_id)
     try:
         final_result = None
-        for evt in _run_vla_pipeline(gemini_images, node_name, engine, workspace_id):
+        async for evt in _run_vla_pipeline(gemini_images, node_name, engine, workspace_id):
             if evt.get("status") == "complete":
                 final_result = evt["result"]
         return final_result
@@ -541,7 +574,7 @@ async def upload_node_stream(
 
     async def event_generator():
         try:
-            for evt in _run_vla_pipeline(gemini_images, node_name, engine, workspace_id):
+            async for evt in _run_vla_pipeline(gemini_images, node_name, engine, workspace_id):
                 if evt.get("status") == "complete":
                     payload = {
                         "step": 3,
@@ -586,13 +619,14 @@ async def chat(payload: ChatPayload):
         map_img = ws_maps.get(target_node) or ws_maps.get(unquoted_name)
         source_imgs = ws_imgs.get(target_node) or ws_imgs.get(unquoted_name)
 
-        response_text = VLAService.chat_with_environment(
+        response_text = await asyncio.to_thread(
+            VLAService.chat_with_environment,
             query=payload.query,
             topology=topology,
             history=payload.history,
             map_image_b64=map_img,
             source_images=source_imgs,
-            engine=payload.engine
+            engine=payload.engine,
         )
         return ChatResponse(response=response_text, node_name=target_node, engine=payload.engine)
     except Exception as e:
@@ -635,13 +669,14 @@ async def query_planner(payload: QueryPayload):
     }
 
     try:
-        result = VLAService.plan_trajectory(
+        result = await asyncio.to_thread(
+            VLAService.plan_trajectory,
             nodes=nodes_list,
             edges=edges_list,
             context_data=context_data,
             current_node=current_node,
             user_query=payload.user_query,
-            engine=payload.engine
+            engine=payload.engine,
         )
         plan_nodes = result.get("plan") or ([current_node] if current_node else [])
         dest_node = plan_nodes[-1] if plan_nodes else current_node
